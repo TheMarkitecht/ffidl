@@ -66,16 +66,20 @@
  * These changes are under BSD License and are
  * Copyright (c) 2018, Patzschke + Rasp Software GmbH, Wiesbaden
  * Author: Adrián Medraño Calvo <amcalvo@prs.de>
+ *
+ * Changes since ffidl 0.8:
+ *  - Ported to Jim Tcl interpreter.
+ * These changes are under BSD License and are
+ * Copyright (c) 2019, Mark Hubbard, <TheMarkitecht@gmail.com>
+ * 
  */
 
 #include <ffidlConfig.h>
 
-#include <tcl.h>
-#include <tclInt.h>
-#include <tclPort.h>
+#include <jim.h>
 
 #if defined(LOOKUP_TK_STUBS)
-static const char *MyTkInitStubs(Tcl_Interp *interp, char *version, int exact);
+static const char *MyTkInitStubs(Jim_Interp *interp, char *version, int exact);
 static void *tkStubsPtr, *tkPlatStubsPtr, *tkIntStubsPtr, *tkIntPlatStubsPtr, *tkIntXlibStubsPtr;
 #else
 #define tkStubsPtr NULL
@@ -138,7 +142,7 @@ static void *tkStubsPtr, *tkPlatStubsPtr, *tkIntStubsPtr, *tkIntPlatStubsPtr, *t
 
 #if defined(HAVE_LONG_DOUBLE) && defined(HAVE_LONG_DOUBLE_WIDER)
 /*
- * Cannot support wider long doubles because they don't fit in Tcl_Obj.
+ * Cannot support wider long doubles because they don't fit in Jim_Obj.
  */
 #  undef HAVE_LONG_DOUBLE
 #endif
@@ -331,13 +335,13 @@ static void *tkStubsPtr, *tkPlatStubsPtr, *tkIntStubsPtr, *tkIntPlatStubsPtr, *t
  */
 #if defined(USE_TCL_DLOPEN)
 
-typedef Tcl_LoadHandle ffidl_LoadHandle;
-typedef Tcl_FSUnloadFileProc *ffidl_UnloadProc;
+typedef Jim_LoadHandle ffidl_LoadHandle;
+typedef Jim_FSUnloadFileProc *ffidl_UnloadProc;
 
 #elif defined(USE_TCL_LOADFILE)
 
-typedef Tcl_LoadHandle ffidl_LoadHandle;
-typedef Tcl_FSUnloadFileProc *ffidl_UnloadProc;
+typedef Jim_LoadHandle ffidl_LoadHandle;
+typedef Jim_FSUnloadFileProc *ffidl_UnloadProc;
 
 #else
 
@@ -397,7 +401,7 @@ typedef struct ffidl_load_flags ffidl_load_flags;
  */
 
 EXTERN void *ffidl_pointer_pun (void *p);
-EXTERN int   Ffidl_Init (Tcl_Interp * interp);
+EXTERN int   Ffidl_Init (Jim_Interp * interp);
 
 /*****************************************
  *
@@ -428,7 +432,7 @@ enum ffidl_typecode {
     FFIDL_PTR_UTF8	= 16,	/* UTF-8 string pointer */
     FFIDL_PTR_UTF16	= 17,	/* UTF-16 string pointer */
     FFIDL_PTR_VAR	= 18,	/* byte array in variable */
-    FFIDL_PTR_OBJ	= 19,	/* Tcl_Obj pointer */
+    FFIDL_PTR_OBJ	= 19,	/* Jim_Obj pointer */
     FFIDL_PTR_PROC	= 20,	/* Pointer to Tcl proc */
 
 /*
@@ -564,14 +568,14 @@ enum ffidl_typecode {
 #if defined(HAVE_INT64)
 #  if defined(TCL_WIDE_INT_IS_LONG)
 #    define HAVE_WIDE_INT		0
-#    define Ffidl_NewInt64Obj		Tcl_NewLongObj
-#    define Ffidl_GetInt64FromObj	Tcl_GetLongFromObj
+#    define Ffidl_NewInt64Obj		Jim_NewLongObj
+#    define Ffidl_GetInt64FromObj	Jim_GetLongFromObj
 #    define Ffidl_Int64			long
 #  else
 #    define HAVE_WIDE_INT		1
-#    define Ffidl_NewInt64Obj		Tcl_NewWideIntObj
-#    define Ffidl_GetInt64FromObj	Tcl_GetWideIntFromObj
-#    define Ffidl_Int64			Tcl_WideInt
+#    define Ffidl_NewInt64Obj		Jim_NewWideIntObj
+#    define Ffidl_GetInt64FromObj	Jim_GetWideIntFromObj
+#    define Ffidl_Int64			Jim_WideInt
 #  endif
 #endif
 
@@ -594,9 +598,9 @@ enum ffidl_typecode {
 /*
  * Tcl object type used for representing pointers within Tcl.
  *
- * We wrap an existing "expr"-compatible Tcl_ObjType, in order to easily support
- * pointer arithmetic and formatting withing Tcl.  The size of the Tcl_ObjType
- * needs to match the pointer size of the platform: long on LP64, Tcl_WideInt on
+ * We wrap an existing "expr"-compatible Jim_ObjType, in order to easily support
+ * pointer arithmetic and formatting withing Tcl.  The size of the Jim_ObjType
+ * needs to match the pointer size of the platform: long on LP64, Jim_WideInt on
  * LLP64 (e.g. WIN64).
  */
 #if SIZEOF_VOID_P == SIZEOF_LONG
@@ -608,10 +612,10 @@ enum ffidl_typecode {
 #endif
 
 #if FFIDL_POINTER_IS_LONG
-static Tcl_Obj *Ffidl_NewPointerObj(void *ptr) {
+static Jim_Obj *Ffidl_NewPointerObj(void *ptr) {
   return Jim_NewLongObj((long)ptr);
 }
-static int Ffidl_GetPointerFromObj(Tcl_Interp *interp, Tcl_Obj *obj, void **ptr) {
+static int Ffidl_GetPointerFromObj(Jim_Interp *interp, Jim_Obj *obj, void **ptr) {
   int status;
   long l;
   status = Jim_GetLongFromObj(interp, obj, &l);
@@ -620,12 +624,12 @@ static int Ffidl_GetPointerFromObj(Tcl_Interp *interp, Tcl_Obj *obj, void **ptr)
 }
 #  define FFIDL_GETPOINTER FFIDL_GETINT
 #else
-static Tcl_Obj *Ffidl_NewPointerObj(void *ptr) {
-  return Jim_NewWideIntObj((Tcl_WideInt)ptr);
+static Jim_Obj *Ffidl_NewPointerObj(void *ptr) {
+  return Jim_NewWideIntObj((Jim_WideInt)ptr);
 }
-static int Ffidl_GetPointerFromObj(Tcl_Interp *interp, Tcl_Obj *obj, void **ptr) {
+static int Ffidl_GetPointerFromObj(Jim_Interp *interp, Jim_Obj *obj, void **ptr) {
   int status;
-  Tcl_WideInt w;
+  Jim_WideInt w;
   status = Jim_GetWideIntFromObj(interp, obj, &w);
   *ptr = (void *)w;
   return status;
@@ -811,11 +815,11 @@ struct ffidl_type {
  * a hashtable of callbacks keyed by proc name
  */
 struct ffidl_client {
-  Tcl_HashTable types;
-  Tcl_HashTable cifs;
-  Tcl_HashTable callouts;
-  Tcl_HashTable libs;
-  Tcl_HashTable callbacks;
+  Jim_HashTable types;
+  Jim_HashTable cifs;
+  Jim_HashTable callouts;
+  Jim_HashTable libs;
+  Jim_HashTable callbacks;
 };
 
 /*
@@ -859,7 +863,7 @@ struct ffidl_callout {
 #if USE_CALLBACKS
 /*
  * The ffidl_closure contains a ffi_closure structure,
- * a Tcl_Interp pointer, and a pointer to the callback binding.
+ * a Jim_Interp pointer, and a pointer to the callback binding.
  */
 struct ffidl_closure {
 #if USE_LIBFFI
@@ -877,8 +881,8 @@ struct ffidl_closure {
 struct ffidl_callback {
   ffidl_cif *cif;
   int cmdc;			/* Number of command prefix words. */
-  Tcl_Obj **cmdv;		/* Command prefix Tcl_Objs. */
-  Tcl_Interp *interp;
+  Jim_Obj **cmdv;		/* Command prefix Jim_Objs. */
+  Jim_Interp *interp;
   ffidl_closure closure;
 #if USE_LIBFFI_RAW_API
   int use_raw_api;		/* Whether to use libffi's raw API. */
@@ -898,12 +902,12 @@ struct ffidl_lib {
  * In addition to the version string above
  */
 
-static const Tcl_ObjType *ffidl_bytearray_ObjType;
-static const Tcl_ObjType *ffidl_int_ObjType;
+static const Jim_ObjType *ffidl_bytearray_ObjType;
+static const Jim_ObjType *ffidl_int_ObjType;
 #if HAVE_WIDE_INT
-static const Tcl_ObjType *ffidl_wideInt_ObjType;
+static const Jim_ObjType *ffidl_wideInt_ObjType;
 #endif
-static const Tcl_ObjType *ffidl_double_ObjType;
+static const Jim_ObjType *ffidl_double_ObjType;
 
 /*
  * base types, the ffi base types and some additional bits.
@@ -992,27 +996,27 @@ static int ffidlsymfallback(ffidl_LoadHandle handle,
 }
 #endif /* !USE_TCL_DLOPEN && !USE_TCL_LOADFILE */
 
-static int ffidlsym(Tcl_Interp *interp,
+static int ffidlsym(Jim_Interp *interp,
 		    ffidl_LoadHandle handle,
-		    Tcl_Obj *symbolNameObj,
+		    Jim_Obj *symbolNameObj,
 		    void **address)
 {
   int status = TCL_OK;
   char *error = NULL;
   char *symbolName = NULL;
   char *nativeSymbolName = NULL;
-  Tcl_DString nds;
+  Jim_DString nds;
 
   symbolName = Jim_GetString(symbolNameObj);
   nativeSymbolName = Jim_UtfToExternalDString(NULL, symbolName, -1, &nds);
 #if defined(USE_TCL_DLOPEN)
-  *address = TclpFindSymbol(interp, (Tcl_LoadHandle)handle, nativeSymbolName);
+  *address = TclpFindSymbol(interp, (Jim_LoadHandle)handle, nativeSymbolName);
   if (!*address) {
     error = "TclpFindSymbol() failed";
     status = TCL_ERROR;
   }
 #elif defined(USE_TCL_LOADFILE)
-  *address = Jim_FindSymbol(interp, (Tcl_LoadHandle)handle, nativeSymbolName);
+  *address = Jim_FindSymbol(interp, (Jim_LoadHandle)handle, nativeSymbolName);
   if (!*address) {
     error = "Jim_FindSymbol() failed";
     status = TCL_ERROR;
@@ -1026,7 +1030,7 @@ static int ffidlsym(Tcl_Interp *interp,
      * with the underscore.
      */
     char *newNativeSymbolName = NULL;
-    Tcl_DString uds;
+    Jim_DString uds;
     char *ignoreerror = NULL;
 
     Jim_DStringInit(&uds);
@@ -1049,8 +1053,8 @@ static int ffidlsym(Tcl_Interp *interp,
   return status;
 }
 
-static int ffidlopen(Tcl_Interp *interp,
-		     Tcl_Obj *libNameObj,
+static int ffidlopen(Jim_Interp *interp,
+		     Jim_Obj *libNameObj,
 		     ffidl_load_flags flags,
 		     ffidl_LoadHandle *handle,
 		     ffidl_UnloadProc *unload)
@@ -1079,7 +1083,7 @@ static int ffidlopen(Tcl_Interp *interp,
   }
   *unload = NULL;
 #else
-  Tcl_DString ds;
+  Jim_DString ds;
   char *libraryName = NULL;
   char *nativeLibraryName = NULL;
   char *error = NULL;
@@ -1126,7 +1130,7 @@ static int ffidlopen(Tcl_Interp *interp,
   return status;
 }
 
-static int ffidlclose(Tcl_Interp *interp,
+static int ffidlclose(Jim_Interp *interp,
 		      char *libraryName,
 		      ffidl_LoadHandle handle,
 		      ffidl_UnloadProc unload)
@@ -1135,9 +1139,9 @@ static int ffidlclose(Tcl_Interp *interp,
   const char *error = NULL;
 #if defined(USE_TCL_DLOPEN)
   /* NOTE: no error reporting. */
-  ((Tcl_FSUnloadFileProc*)unload)((Tcl_LoadHandle)handle);
+  ((Jim_FSUnloadFileProc*)unload)((Jim_LoadHandle)handle);
 #elif defined(USE_TCL_LOADFILE)
-  status = Jim_FSUnloadFile(interp, (Tcl_LoadHandle)handle);
+  status = Jim_FSUnloadFile(interp, (Jim_LoadHandle)handle);
   if (status != TCL_OK) {
     error = Jim_GetStringResult(interp);
   }
@@ -1166,22 +1170,22 @@ static int ffidlclose(Tcl_Interp *interp,
  * hash table management
  */
 /* define a hashtable entry */
-static void entry_define(Tcl_HashTable *table, char *name, void *datum)
+static void entry_define(Jim_HashTable *table, char *name, void *datum)
 {
   int dummy;
   Jim_SetHashValue(Jim_CreateHashEntry(table,name,&dummy), datum);
 }
 /* lookup an existing entry */
-static void *entry_lookup(Tcl_HashTable *table, char *name)
+static void *entry_lookup(Jim_HashTable *table, char *name)
 {
-  Tcl_HashEntry *entry = Jim_FindHashEntry(table,name);
+  Jim_HashEntry *entry = Jim_FindHashEntry(table,name);
   return entry ? Jim_GetHashValue(entry) : NULL;
 }
 /* find an entry by it's hash value */
-static Tcl_HashEntry *entry_find(Tcl_HashTable *table, void *datum)
+static Jim_HashEntry *entry_find(Jim_HashTable *table, void *datum)
 {
-  Tcl_HashSearch search;
-  Tcl_HashEntry *entry = Jim_FirstHashEntry(table, &search);
+  Jim_HashSearch search;
+  Jim_HashEntry *entry = Jim_FirstHashEntry(table, &search);
   while (entry != NULL) {
     if (Jim_GetHashValue(entry) == datum)
       return entry;
@@ -1204,7 +1208,7 @@ static ffidl_type *type_lookup(ffidl_client *client, char *tname)
 }
 /* find a type by it's ffidl_type */
 /*
-static Tcl_HashEntry *type_find(ffidl_client *client, ffidl_type *type)
+static Jim_HashEntry *type_find(ffidl_client *client, ffidl_type *type)
 {
   return entry_find(&client->types,(void *)type);
 }
@@ -1222,7 +1226,7 @@ static Tcl_HashEntry *type_find(ffidl_client *client, ffidl_type *type)
 #endif
 
 /* build a binary format string */
-static int type_format(Tcl_Interp *interp, ffidl_type *type, int *offset)
+static int type_format(Jim_Interp *interp, ffidl_type *type, int *offset)
 {
   int i;
   char buff[128];
@@ -1441,7 +1445,7 @@ static ffidl_cif *cif_lookup(ffidl_client *client, char *cname)
   return entry_lookup(&client->cifs,cname);
 }
 /* find a cif by it's ffidl_cif */
-static Tcl_HashEntry *cif_find(ffidl_client *client, ffidl_cif *cif)
+static Jim_HashEntry *cif_find(ffidl_client *client, ffidl_cif *cif)
 {
   return entry_find(&client->cifs,(void *)cif);
 }
@@ -1500,7 +1504,7 @@ static void cif_dec_ref(ffidl_cif *cif)
  * @param[in] interp Tcl interpreter.
  * @param[in] client Ffidle data.
  * @param[in] context Context where the type has been found.
- * @param[in] typename Tcl_Obj whose string representation is a type name.
+ * @param[in] typename Jim_Obj whose string representation is a type name.
  * @param[out] typePtr Points to the place to store the pointer to the parsed @c
  *     ffidl_type.
  * @param[in] valueArea Points to the area where values @p argp values should be
@@ -1510,7 +1514,7 @@ static void cif_dec_ref(ffidl_cif *cif)
  *     placed upon callout.
  * @return TCL_OK if successful, TCL_ERROR otherwise.
  */
-static int cif_type_parse(Tcl_Interp *interp, ffidl_client *client, Tcl_Obj *typename, ffidl_type **typePtr)
+static int cif_type_parse(Jim_Interp *interp, ffidl_client *client, Jim_Obj *typename, ffidl_type **typePtr)
 {
   char *arg = Jim_GetString(typename);
 
@@ -1530,8 +1534,8 @@ static int cif_type_parse(Tcl_Interp *interp, ffidl_client *client, Tcl_Obj *typ
  * @param[in] type A ffidl_type.
  * @param[in] typeNameObj The type's name.
  */
-static int cif_type_check_context(Tcl_Interp *interp, unsigned context,
-				  Tcl_Obj *typeNameObj, ffidl_type *typePtr)
+static int cif_type_check_context(Jim_Interp *interp, unsigned context,
+				  Jim_Obj *typeNameObj, ffidl_type *typePtr)
 {
   if ((context & typePtr->class) == 0) {
     char *typeName = Jim_GetString(typeNameObj);
@@ -1611,7 +1615,7 @@ static int cif_prep(ffidl_cif *cif)
   return TCL_OK;
 }
 /* find the protocol, ie abi, for this cif */
-static int cif_protocol(Tcl_Interp *interp, Tcl_Obj *obj, int *protocolp, char **protocolnamep)
+static int cif_protocol(Jim_Interp *interp, Jim_Obj *obj, int *protocolp, char **protocolnamep)
 {
 #if USE_LIBFFI
   if (obj != NULL) {
@@ -1661,12 +1665,12 @@ static int cif_protocol(Tcl_Interp *interp, Tcl_Obj *obj, int *protocolp, char *
  * parse a cif argument list, return type, and protocol,
  * and find or create it in the cif table.
  */
-static int cif_parse(Tcl_Interp *interp, ffidl_client *client, Tcl_Obj *args, Tcl_Obj *ret, Tcl_Obj *pro, ffidl_cif **cifp)
+static int cif_parse(Jim_Interp *interp, ffidl_client *client, Jim_Obj *args, Jim_Obj *ret, Jim_Obj *pro, ffidl_cif **cifp)
 {
   int argc, protocol, i;
-  Tcl_Obj **argv;
+  Jim_Obj **argv;
   char *protocolname;
-  Tcl_DString signature;
+  Jim_DString signature;
   ffidl_cif *cif = NULL;
   /* fetch argument types */
   if (Jim_ListObjGetElements(interp, args, &argc, &argv) == TCL_ERROR) return TCL_ERROR;
@@ -1740,7 +1744,7 @@ static ffidl_callout *callout_lookup(ffidl_client *client, char *pname)
   return entry_lookup(&client->callouts,pname);
 }
 /* find a callout by it's ffidl_callout */
-static Tcl_HashEntry *callout_find(ffidl_client *client, ffidl_callout *callout)
+static Jim_HashEntry *callout_find(ffidl_client *client, ffidl_callout *callout)
 {
   return entry_find(&client->callouts,(void *)callout);
 }
@@ -1748,7 +1752,7 @@ static Tcl_HashEntry *callout_find(ffidl_client *client, ffidl_callout *callout)
 static void callout_delete(ClientData clientData)
 {
   ffidl_callout *callout = (ffidl_callout *)clientData;
-  Tcl_HashEntry *entry = callout_find(callout->client, callout);
+  Jim_HashEntry *entry = callout_find(callout->client, callout);
   if (entry) {
     cif_dec_ref(callout->cif);
     Jim_Free((void *)callout);
@@ -1764,7 +1768,7 @@ static void callout_delete(ClientData clientData)
  * @param[in] interp Tcl interpreter.
  * @param[in] client Ffidle data.
  * @param[in] context Context where the type has been found.
- * @param[in] typename Tcl_Obj whose string representation is a type name.
+ * @param[in] typename Jim_Obj whose string representation is a type name.
  * @param[out] typePtr Points to the place to store the pointer to the parsed @c
  *     ffidl_type.
  * @param[in] valueArea Points to the area where values @p argp values should be
@@ -1774,8 +1778,8 @@ static void callout_delete(ClientData clientData)
  *     placed upon callout.
  * @return TCL_OK if successful, TCL_ERROR otherwise.
  */
-static int callout_prep_value(Tcl_Interp *interp, unsigned context,
-			      Tcl_Obj *typeNameObj, ffidl_type *typePtr,
+static int callout_prep_value(Jim_Interp *interp, unsigned context,
+			      Jim_Obj *typeNameObj, ffidl_type *typePtr,
 			      ffidl_value *valueArea, void **valuePtr)
 {
   char buff[128];
@@ -2051,7 +2055,7 @@ static ffidl_callback *callback_lookup(ffidl_client *client, char *cname)
 }
 /* find a callback by it's ffidl_callback */
 /*
-static Tcl_HashEntry *callback_find(ffidl_client *client, ffidl_callback *callback)
+static Jim_HashEntry *callback_find(ffidl_client *client, ffidl_callback *callback)
 {
   return entry_find(&client->callbacks,(void *)callback);
 }
@@ -2060,7 +2064,7 @@ static Tcl_HashEntry *callback_find(ffidl_client *client, ffidl_callback *callba
 /*
 static void callback_delete(ffidl_client *client, ffidl_callback *callback)
 {
-  Tcl_HashEntry *entry = callback_find(client, callback);
+  Jim_HashEntry *entry = callback_find(client, callback);
   if (entry) {
     callback_free(callback);
     Jim_DeleteHashEntry(entry);
@@ -2072,9 +2076,9 @@ static void callback_delete(ffidl_client *client, ffidl_callback *callback)
 static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *user_data)
 {
   ffidl_callback *callback = (ffidl_callback *)user_data;
-  Tcl_Interp *interp = callback->interp;
+  Jim_Interp *interp = callback->interp;
   ffidl_cif *cif = callback->cif;
-  Tcl_Obj **objv, *obj;
+  Jim_Obj **objv, *obj;
   char buff[128];
   int i, status;
   long ltmp;
@@ -2149,13 +2153,13 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
       objv[i] = Ffidl_NewPointerObj((*(void **)argp));
       break;
     case FFIDL_PTR_OBJ:
-      objv[i] = *(Tcl_Obj **)argp;
+      objv[i] = *(Jim_Obj **)argp;
       break;
     case FFIDL_PTR_UTF8:
       objv[i] = Jim_NewStringObj(*(char **)argp, -1);
       break;
     case FFIDL_PTR_UTF16:
-      objv[i] = Jim_NewUnicodeObj(*(Tcl_UniChar **)argp, -1);
+      objv[i] = Jim_NewUnicodeObj(*(Jim_UniChar **)argp, -1);
       break;
     default:
       sprintf(buff, "unimplemented type for callback argument: %d", cif->atypes[i]->typecode);
@@ -2301,9 +2305,9 @@ escape:
 static void callback_callback(void *user_data, va_alist alist)
 {
   ffidl_callback *callback = (ffidl_callback *)user_data;
-  Tcl_Interp *interp = callback->interp;
+  Jim_Interp *interp = callback->interp;
   ffidl_cif *cif = callback->cif;
-  Tcl_Obj **objv, *obj;
+  Jim_Obj **objv, *obj;
   char buff[128];
   int i, status;
   long ltmp;
@@ -2335,7 +2339,7 @@ static void callback_callback(void *user_data, va_alist alist)
 #endif
   case FFIDL_STRUCT:	_va_start_struct(alist,cif->rtype->size,cif->rtype->alignment,cif->rtype->splittable); break;
   case FFIDL_PTR:	va_start_ptr(alist,void *); break;
-  case FFIDL_PTR_OBJ:	va_start_ptr(alist,Tcl_Obj *); break;
+  case FFIDL_PTR_OBJ:	va_start_ptr(alist,Jim_Obj *); break;
   default:
     Jim_ResetResult(interp);
     sprintf(buff, "unimplemented type for callback return: %d", cif->rtype->typecode);
@@ -2390,13 +2394,13 @@ static void callback_callback(void *user_data, va_alist alist)
       objv[i] = Ffidl_NewPointerObj(va_arg_ptr(alist,void *));
       break;
     case FFIDL_PTR_OBJ:
-      objv[i] = va_arg_ptr(alist,Tcl_Obj *);
+      objv[i] = va_arg_ptr(alist,Jim_Obj *);
       break;
     case FFIDL_PTR_UTF8:
       objv[i] = Jim_NewStringObj(va_arg_ptr(alist,char *), -1);
       break;
     case FFIDL_PTR_UTF16:
-      objv[i] = Jim_NewUnicodeObj(va_arg_ptr(alist,Tcl_UniChar *), -1);
+      objv[i] = Jim_NewUnicodeObj(va_arg_ptr(alist,Jim_UniChar *), -1);
       break;
     default:
       sprintf(buff, "unimplemented type for callback argument: %d", cif->atypes[i]->typecode);
@@ -2517,7 +2521,7 @@ static void callback_callback(void *user_data, va_alist alist)
       break;
     }
   case FFIDL_PTR:	va_return_ptr(alist, void *, ltmp); break;
-  case FFIDL_PTR_OBJ:	va_return_ptr(alist, Tcl_Obj *, obj); break;
+  case FFIDL_PTR_OBJ:	va_return_ptr(alist, Jim_Obj *, obj); break;
   default:
     Jim_ResetResult(interp);
     sprintf(buff, "unimplemented type for callback return: %d", cif->rtype->typecode);
@@ -2535,11 +2539,11 @@ escape:
  * Client management.
  */
 /* client interp deletion callback for cleanup */
-static void client_delete(ClientData clientData, Tcl_Interp *interp)
+static void client_delete(ClientData clientData, Jim_Interp *interp)
 {
   ffidl_client *client = (ffidl_client *)clientData;
-  Tcl_HashSearch search;
-  Tcl_HashEntry *entry;
+  Jim_HashSearch search;
+  Jim_HashEntry *entry;
 
   /* there should be no callouts left */
   for (entry = Jim_FirstHashEntry(&client->callouts, &search); entry != NULL; entry = Jim_NextHashEntry(&search)) {
@@ -2592,7 +2596,7 @@ static void client_delete(ClientData clientData, Tcl_Interp *interp)
   Jim_Free((void *)client);
 }
 /* client allocation and initialization */
-static ffidl_client *client_alloc(Tcl_Interp *interp)
+static ffidl_client *client_alloc(Jim_Interp *interp)
 {
   ffidl_client *client;
 
@@ -2660,7 +2664,7 @@ static ffidl_client *client_alloc(Tcl_Interp *interp)
  */
 
 /* usage: ::ffidl::info option ?...? */
-static int tcl_ffidl_info(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_info(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -2670,9 +2674,9 @@ static int tcl_ffidl_info(ClientData clientData, Tcl_Interp *interp, int objc, T
 
   int i;
   char *arg;
-  Tcl_HashTable *table;
-  Tcl_HashSearch search;
-  Tcl_HashEntry *entry;
+  Jim_HashTable *table;
+  Jim_HashSearch search;
+  Jim_HashEntry *entry;
   ffidl_type *type;
   ffidl_client *client = (ffidl_client *)clientData;
   static const char *options[] = {
@@ -2853,7 +2857,7 @@ static int tcl_ffidl_info(ClientData clientData, Tcl_Interp *interp, int objc, T
 }
 
 /* usage: ffidl-typedef name type1 ?type2 ...? */
-static int tcl_ffidl_typedef(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_typedef(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -2941,7 +2945,7 @@ static int tcl_ffidl_typedef(ClientData clientData, Tcl_Interp *interp, int objc
 }
 
 /* usage: depends on the signature defining the ffidl-callout */
-static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_call(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -2957,7 +2961,7 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
 #if HAVE_INT64
   Ffidl_Int64 wtmp;
 #endif
-  Tcl_Obj *obj = NULL;
+  Jim_Obj *obj = NULL;
   char buff[128];
 
   /* usage check */
@@ -3115,11 +3119,11 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
     case FFIDL_PTR_PROC: {
       ffidl_callback *callback;
       ffidl_closure *closure;
-      Tcl_DString ds;
+      Jim_DString ds;
       char *name = Jim_GetString(objv[args_ix+i]);
       Jim_DStringInit(&ds);
       if (!strstr(name, "::")) {
-        Tcl_Namespace *ns;
+        Jim_Namespace *ns;
         ns = Jim_GetCurrentNamespace(interp);
         if (ns != Jim_GetGlobalNamespace(interp)) {
           Jim_DStringAppend(&ds, ns->fullName, -1);
@@ -3180,7 +3184,7 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
 #endif
   case FFIDL_STRUCT:	Jim_SetObjResult(interp, obj); Jim_DecrRefCount(obj); break;
   case FFIDL_PTR:	Jim_SetObjResult(interp, Ffidl_NewPointerObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret))); break;
-  case FFIDL_PTR_OBJ:	Jim_SetObjResult(interp, (Tcl_Obj *)FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret)); break;
+  case FFIDL_PTR_OBJ:	Jim_SetObjResult(interp, (Jim_Obj *)FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret)); break;
   case FFIDL_PTR_UTF8:	Jim_SetObjResult(interp, Jim_NewStringObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret), -1)); break;
   case FFIDL_PTR_UTF16:	Jim_SetObjResult(interp, Jim_NewUnicodeObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret), -1)); break;
   default:
@@ -3196,7 +3200,7 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
 }
 
 /* usage: ffidl-callout name {?argument_type ...?} return_type address ?protocol? */
-static int tcl_ffidl_callout(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_callout(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3212,9 +3216,9 @@ static int tcl_ffidl_callout(ClientData clientData, Tcl_Interp *interp, int objc
   char *name;
   void (*fn)();
   int argc, i;
-  Tcl_Obj **argv;
-  Tcl_DString usage, ds;
-  Tcl_Command res;
+  Jim_Obj **argv;
+  Jim_DString usage, ds;
+  Jim_Command res;
   ffidl_cif *cif = NULL;
   ffidl_callout *callout;
   ffidl_client *client = (ffidl_client *)clientData;
@@ -3230,7 +3234,7 @@ static int tcl_ffidl_callout(ClientData clientData, Tcl_Interp *interp, int objc
   /* fetch name */
   name = Jim_GetString(objv[name_ix]);
   if (!strstr(name, "::")) {
-    Tcl_Namespace *ns;
+    Jim_Namespace *ns;
     ns = Jim_GetCurrentNamespace(interp);
     if (ns != Jim_GetGlobalNamespace(interp)) {
       Jim_DStringAppend(&ds, ns->fullName, -1);
@@ -3317,7 +3321,7 @@ error:
 
 #if USE_CALLBACKS
 /* usage: ffidl-callback name {?argument_type ...?} return_type ?protocol? ?cmdprefix? -> */
-static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_callback(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3331,11 +3335,11 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
   };
 
   char *name;
-  Tcl_Obj *nameObj;
+  Jim_Obj *nameObj;
   ffidl_cif *cif = NULL;
-  Tcl_Obj **cmdv = NULL;
+  Jim_Obj **cmdv = NULL;
   int cmdc;
-  Tcl_DString ds;
+  Jim_DString ds;
   ffidl_callback *callback = NULL;
   ffidl_client *client = (ffidl_client *)clientData;
   ffidl_closure *closure = NULL;
@@ -3343,7 +3347,7 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
   int has_protocol = objc - 1 >= protocol_ix;
   int has_cmdprefix = objc - 1 >= cmdprefix_ix;
   int i, argc = 0;
-  Tcl_Obj **argv = NULL;
+  Jim_Obj **argv = NULL;
 
   /* usage check */
   if (objc < minargs || objc > maxargs) {
@@ -3354,7 +3358,7 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
   Jim_DStringInit(&ds);
   name = Jim_GetString(objv[name_ix]);
   if (!strstr(name, "::")) {
-    Tcl_Namespace *ns;
+    Jim_Namespace *ns;
     ns = Jim_GetCurrentNamespace(interp);
     if (ns != Jim_GetGlobalNamespace(interp)) {
       Jim_DStringAppend(&ds, ns->fullName, -1);
@@ -3384,7 +3388,7 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
     }
   /* create Tcl proc */
   if (has_cmdprefix) {
-    Tcl_Obj *cmdprefix = objv[cmdprefix_ix];
+    Jim_Obj *cmdprefix = objv[cmdprefix_ix];
     Jim_IncrRefCount(cmdprefix);
     if (Jim_ListObjGetElements(interp, cmdprefix, &cmdc, &cmdv) != TCL_OK) {
       goto error;
@@ -3403,8 +3407,8 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
 
   /* allocate the callback structure */
   callback = (ffidl_callback *)Jim_Alloc(sizeof(ffidl_callback)
-					 /* cmdprefix and argument Tcl_Objs */
-					 +(cmdc+cif->argc)*sizeof(Tcl_Obj *)
+					 /* cmdprefix and argument Jim_Objs */
+					 +(cmdc+cif->argc)*sizeof(Jim_Obj *)
 #if USE_LIBFFI_RAW_API
 					 /* raw argument offsets */
 					 +cif->argc*sizeof(ptrdiff_t)
@@ -3417,10 +3421,10 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
   /* initialize the callback */
   callback->cif = cif;
   callback->interp = interp;
-  /* store the command prefix' Tcl_Objs */
+  /* store the command prefix' Jim_Objs */
   callback->cmdc = cmdc;
-  callback->cmdv = (Tcl_Obj **)(callback+1);
-  memcpy(callback->cmdv, cmdv, cmdc*sizeof(Tcl_Obj *));
+  callback->cmdv = (Jim_Obj **)(callback+1);
+  memcpy(callback->cmdv, cmdv, cmdc*sizeof(Jim_Obj *));
   closure = &(callback->closure);
 #if USE_LIBFFI
   closure->lib_closure = ffi_closure_alloc(sizeof(ffi_closure), &(closure->executable));
@@ -3493,7 +3497,7 @@ error:
 #endif
 
 /* usage: ffidl::library library ?options...?*/
-static int tcl_ffidl_library(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_library(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3538,7 +3542,7 @@ static int tcl_ffidl_library(ClientData clientData, Tcl_Interp *interp, int objc
 
   int i = 0;
   ffidl_load_flags flags = {FFIDL_LOAD_BINDING_NONE, FFIDL_LOAD_VISIBILITY_NONE};
-  Tcl_Obj *libraryObj;
+  Jim_Obj *libraryObj;
   char *libraryName;
   ffidl_LoadHandle handle;
   ffidl_UnloadProc unload;
@@ -3633,7 +3637,7 @@ static int tcl_ffidl_library(ClientData clientData, Tcl_Interp *interp, int objc
 }
 
 /* usage: ffidl-symbol library symbol -> address */
-static int tcl_ffidl_symbol(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_symbol(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3673,7 +3677,7 @@ static int tcl_ffidl_symbol(ClientData clientData, Tcl_Interp *interp, int objc,
 }
 
 /* usage: ffidl-stubsymbol library stubstable symbolnumber -> address */
-static int tcl_ffidl_stubsymbol(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
+static int tcl_ffidl_stubsymbol(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3770,7 +3774,7 @@ void *ffidl_pointer_pun(void *p) { return p; }
  *
  *--------------------------------------------------------------
  */
-int Ffidl_Init(Tcl_Interp *interp)
+int Ffidl_Init(Jim_Interp *interp)
 {
   ffidl_client *client;
 
@@ -3798,7 +3802,7 @@ int Ffidl_Init(Tcl_Interp *interp)
   Jim_CreateObjCommand(interp,"::ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
 #endif
 
-  /* determine Tcl_ObjType * for some types */
+  /* determine Jim_ObjType * for some types */
   ffidl_bytearray_ObjType = Jim_GetObjType("bytearray");
   ffidl_int_ObjType = Jim_GetObjType("int");
 #if HAVE_WIDE_INT
@@ -3826,7 +3830,7 @@ typedef struct MyTkStubs {
 /* private copy of Tk_InitStubs to avoid having to depend on Tk at build time */
 static const char *
 MyTkInitStubs(interp, version, exact)
-    Tcl_Interp *interp;
+    Jim_Interp *interp;
     char *version;
     int exact;
 {
