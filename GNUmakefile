@@ -137,7 +137,7 @@ TCLSH_PROG	= /home/x/temp/tcl/tcl8.6.10/unix/tclsh
 TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
 SHARED_BUILD	= 1
 
-INCLUDES	=  -I$(top_builddir) -I"/home/x/temp/tcl/tcl8.6.10/generic" -I"/home/x/temp/tcl/tcl8.6.10/unix"
+INCLUDES	=  -I$(top_builddir) -I"/home/x/temp/tcl/tcl8.6.10/generic" -I"/home/x/temp/tcl/tcl8.6.10/unix" -I"/secure/SecureNotes/Tcl_Evolution/jimsh"
 
 PKG_CFLAGS	=  
 
