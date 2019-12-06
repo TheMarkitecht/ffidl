@@ -609,24 +609,24 @@ enum ffidl_typecode {
 
 #if FFIDL_POINTER_IS_LONG
 static Tcl_Obj *Ffidl_NewPointerObj(void *ptr) {
-  return Tcl_NewLongObj((long)ptr);
+  return Jim_NewLongObj((long)ptr);
 }
 static int Ffidl_GetPointerFromObj(Tcl_Interp *interp, Tcl_Obj *obj, void **ptr) {
   int status;
   long l;
-  status = Tcl_GetLongFromObj(interp, obj, &l);
+  status = Jim_GetLongFromObj(interp, obj, &l);
   *ptr = (void *)l;
   return status;
 }
 #  define FFIDL_GETPOINTER FFIDL_GETINT
 #else
 static Tcl_Obj *Ffidl_NewPointerObj(void *ptr) {
-  return Tcl_NewWideIntObj((Tcl_WideInt)ptr);
+  return Jim_NewWideIntObj((Tcl_WideInt)ptr);
 }
 static int Ffidl_GetPointerFromObj(Tcl_Interp *interp, Tcl_Obj *obj, void **ptr) {
   int status;
   Tcl_WideInt w;
-  status = Tcl_GetWideIntFromObj(interp, obj, &w);
+  status = Jim_GetWideIntFromObj(interp, obj, &w);
   *ptr = (void *)w;
   return status;
 }
@@ -1003,8 +1003,8 @@ static int ffidlsym(Tcl_Interp *interp,
   char *nativeSymbolName = NULL;
   Tcl_DString nds;
 
-  symbolName = Tcl_GetString(symbolNameObj);
-  nativeSymbolName = Tcl_UtfToExternalDString(NULL, symbolName, -1, &nds);
+  symbolName = Jim_GetString(symbolNameObj);
+  nativeSymbolName = Jim_UtfToExternalDString(NULL, symbolName, -1, &nds);
 #if defined(USE_TCL_DLOPEN)
   *address = TclpFindSymbol(interp, (Tcl_LoadHandle)handle, nativeSymbolName);
   if (!*address) {
@@ -1012,9 +1012,9 @@ static int ffidlsym(Tcl_Interp *interp,
     status = TCL_ERROR;
   }
 #elif defined(USE_TCL_LOADFILE)
-  *address = Tcl_FindSymbol(interp, (Tcl_LoadHandle)handle, nativeSymbolName);
+  *address = Jim_FindSymbol(interp, (Tcl_LoadHandle)handle, nativeSymbolName);
   if (!*address) {
-    error = "Tcl_FindSymbol() failed";
+    error = "Jim_FindSymbol() failed";
     status = TCL_ERROR;
   }
 #else
@@ -1029,21 +1029,21 @@ static int ffidlsym(Tcl_Interp *interp,
     Tcl_DString uds;
     char *ignoreerror = NULL;
 
-    Tcl_DStringInit(&uds);
-    Tcl_DStringAppend(&uds, "_", 1);
-    Tcl_DStringAppend(&uds, Tcl_DStringValue(&nds), Tcl_DStringLength(&nds));
-    newNativeSymbolName = Tcl_DStringValue(&uds);
+    Jim_DStringInit(&uds);
+    Jim_DStringAppend(&uds, "_", 1);
+    Jim_DStringAppend(&uds, Jim_DStringValue(&nds), Jim_DStringLength(&nds));
+    newNativeSymbolName = Jim_DStringValue(&uds);
 
     status = ffidlsymfallback(handle, newNativeSymbolName, address, ignoreerror);
 
-    Tcl_DStringFree(&uds);
+    Jim_DStringFree(&uds);
   }
 #endif /* USE_TCL_{LOADFILE,DLOPEN} */
 
-  Tcl_DStringFree(&nds);
+  Jim_DStringFree(&nds);
 
   if (error) {
-    Tcl_AppendResult(interp, "couldn't find symbol \"", symbolName, "\" : ", error, NULL);
+    Jim_AppendResult(interp, "couldn't find symbol \"", symbolName, "\" : ", error, NULL);
   }
 
   return status;
@@ -1060,8 +1060,8 @@ static int ffidlopen(Tcl_Interp *interp,
   if (flags.binding != FFIDL_LOAD_BINDING_NONE ||
       flags.visibility != FFIDL_LOAD_VISIBILITY_NONE) {
     char *libraryName = NULL;
-    libraryName = Tcl_GetString(libNameObj);
-    Tcl_AppendResult(interp, "couldn't load file \"", libraryName, "\" : ",
+    libraryName = Jim_GetString(libNameObj);
+    Jim_AppendResult(interp, "couldn't load file \"", libraryName, "\" : ",
 		     "loading flags are not supported with USE_TCL_DLOPEN configuration",
 		     (char *) NULL);
     status = TCL_ERROR;
@@ -1073,7 +1073,7 @@ static int ffidlopen(Tcl_Interp *interp,
     int tclflags =
       (flags.visibility == FFIDL_LOAD_VISIBILITY_GLOBAL? TCL_LOAD_GLOBAL : 0) |
       (flags.binding == FFIDL_LOAD_BINDING_LAZY? TCL_LOAD_LAZY : 0);
-    if (Tcl_LoadFile(interp, libNameObj, NULL, tclflags, NULL, handle) != TCL_OK) {
+    if (Jim_LoadFile(interp, libNameObj, NULL, tclflags, NULL, handle) != TCL_OK) {
       status = TCL_ERROR;
     }
   }
@@ -1084,8 +1084,8 @@ static int ffidlopen(Tcl_Interp *interp,
   char *nativeLibraryName = NULL;
   char *error = NULL;
 
-  libraryName = Tcl_GetString(libNameObj);
-  nativeLibraryName = Tcl_UtfToExternalDString(NULL, libraryName, -1, &ds);
+  libraryName = Jim_GetString(libNameObj);
+  nativeLibraryName = Jim_UtfToExternalDString(NULL, libraryName, -1, &ds);
   nativeLibraryName = strlen(nativeLibraryName) ? nativeLibraryName : NULL;
 
 #if defined(__WIN32__)
@@ -1113,14 +1113,14 @@ static int ffidlopen(Tcl_Interp *interp,
 #endif
 
   if (*handle == NULL) {
-    Tcl_AppendResult(interp, "couldn't load file \"", libraryName, "\" : ",
+    Jim_AppendResult(interp, "couldn't load file \"", libraryName, "\" : ",
 		     error, (char *) NULL);
     status = TCL_ERROR;
   } else {
     *unload = NULL;
   }
 
-  Tcl_DStringFree(&ds);
+  Jim_DStringFree(&ds);
 #endif
 
   return status;
@@ -1137,9 +1137,9 @@ static int ffidlclose(Tcl_Interp *interp,
   /* NOTE: no error reporting. */
   ((Tcl_FSUnloadFileProc*)unload)((Tcl_LoadHandle)handle);
 #elif defined(USE_TCL_LOADFILE)
-  status = Tcl_FSUnloadFile(interp, (Tcl_LoadHandle)handle);
+  status = Jim_FSUnloadFile(interp, (Tcl_LoadHandle)handle);
   if (status != TCL_OK) {
-    error = Tcl_GetStringResult(interp);
+    error = Jim_GetStringResult(interp);
   }
 #else
 #if defined(__WIN32__)
@@ -1155,7 +1155,7 @@ static int ffidlclose(Tcl_Interp *interp,
 #endif
 #endif
   if (status != TCL_OK) {
-    Tcl_AppendResult(interp, "couldn't unload lib \"", libraryName, "\": ",
+    Jim_AppendResult(interp, "couldn't unload lib \"", libraryName, "\": ",
 		     error, (char *) NULL);
   }
   return status;
@@ -1169,23 +1169,23 @@ static int ffidlclose(Tcl_Interp *interp,
 static void entry_define(Tcl_HashTable *table, char *name, void *datum)
 {
   int dummy;
-  Tcl_SetHashValue(Tcl_CreateHashEntry(table,name,&dummy), datum);
+  Jim_SetHashValue(Jim_CreateHashEntry(table,name,&dummy), datum);
 }
 /* lookup an existing entry */
 static void *entry_lookup(Tcl_HashTable *table, char *name)
 {
-  Tcl_HashEntry *entry = Tcl_FindHashEntry(table,name);
-  return entry ? Tcl_GetHashValue(entry) : NULL;
+  Tcl_HashEntry *entry = Jim_FindHashEntry(table,name);
+  return entry ? Jim_GetHashValue(entry) : NULL;
 }
 /* find an entry by it's hash value */
 static Tcl_HashEntry *entry_find(Tcl_HashTable *table, void *datum)
 {
   Tcl_HashSearch search;
-  Tcl_HashEntry *entry = Tcl_FirstHashEntry(table, &search);
+  Tcl_HashEntry *entry = Jim_FirstHashEntry(table, &search);
   while (entry != NULL) {
-    if (Tcl_GetHashValue(entry) == datum)
+    if (Jim_GetHashValue(entry) == datum)
       return entry;
-    entry = Tcl_NextHashEntry(&search);
+    entry = Jim_NextHashEntry(&search);
   }
   return NULL;
 }
@@ -1228,12 +1228,12 @@ static int type_format(Tcl_Interp *interp, ffidl_type *type, int *offset)
   char buff[128];
   /* Handle void case. */
   if (type->size == 0) {
-    Tcl_SetResult(interp, "", TCL_STATIC);
+    Jim_SetResult(interp, "", TCL_STATIC);
     return TCL_OK;
   }
   /* Insert alignment padding */
   while ((*offset % type->alignment) != 0) {
-    Tcl_AppendResult(interp, "x", NULL);
+    Jim_AppendResult(interp, "x", NULL);
     *offset += 1;
   }
   switch (type->typecode) {
@@ -1258,24 +1258,24 @@ static int type_format(Tcl_Interp *interp, ffidl_type *type, int *offset)
     switch (type->size) {
     case sizeof(Ffidl_Int64):
       *offset += 8;
-      Tcl_AppendResult(interp, FFIDL_WIDEINT_FORMAT, NULL);
+      Jim_AppendResult(interp, FFIDL_WIDEINT_FORMAT, NULL);
       return TCL_OK;
     case sizeof(int):
       *offset += 4;
-      Tcl_AppendResult(interp, FFIDL_INT_FORMAT, NULL);
+      Jim_AppendResult(interp, FFIDL_INT_FORMAT, NULL);
       return TCL_OK;
     case sizeof(short):
       *offset += 2;
-      Tcl_AppendResult(interp, FFIDL_SHORT_FORMAT, NULL);
+      Jim_AppendResult(interp, FFIDL_SHORT_FORMAT, NULL);
       return TCL_OK;
     case sizeof(char):
       *offset += 1;
-      Tcl_AppendResult(interp, "c", NULL);
+      Jim_AppendResult(interp, "c", NULL);
       return TCL_OK;
     default:
       *offset += type->size;
       sprintf(buff, "c%lu", (long)(type->size));
-      Tcl_AppendResult(interp, buff, NULL);
+      Jim_AppendResult(interp, buff, NULL);
       return TCL_OK;
     }
   case FFIDL_FLOAT:
@@ -1285,16 +1285,16 @@ static int type_format(Tcl_Interp *interp, ffidl_type *type, int *offset)
 #endif
     if (type->size == sizeof(double)) {
       *offset += 8;
-      Tcl_AppendResult(interp, "d", NULL);
+      Jim_AppendResult(interp, "d", NULL);
       return TCL_OK;
     } else if (type->size == sizeof(float)) {
       *offset += 4;
-      Tcl_AppendResult(interp, "f", NULL);
+      Jim_AppendResult(interp, "f", NULL);
       return TCL_OK;
     } else {
       *offset += type->size;
       sprintf(buff, "c%lu", (long)(type->size));
-      Tcl_AppendResult(interp, buff, NULL);
+      Jim_AppendResult(interp, buff, NULL);
       return TCL_OK;
     }
   case FFIDL_STRUCT:
@@ -1303,21 +1303,21 @@ static int type_format(Tcl_Interp *interp, ffidl_type *type, int *offset)
 	return TCL_ERROR;
     /* Insert tail padding */
     while (*offset < type->size) {
-      Tcl_AppendResult(interp, "x", NULL);
+      Jim_AppendResult(interp, "x", NULL);
       *offset += 1;
     }
     return TCL_OK;
   default:
     sprintf(buff, "cannot format ffidl_type: %d", type->typecode);
-    Tcl_ResetResult(interp);
-    Tcl_AppendResult(interp, buff, NULL);
+    Jim_ResetResult(interp);
+    Jim_AppendResult(interp, buff, NULL);
     return TCL_ERROR;
   }
 }
 static ffidl_type *type_alloc(ffidl_client *client, int nelts)
 {
   ffidl_type *newtype;
-  newtype = (ffidl_type *)Tcl_Alloc(sizeof(ffidl_type)
+  newtype = (ffidl_type *)Jim_Alloc(sizeof(ffidl_type)
 				  +nelts*sizeof(ffidl_type*)
 #if USE_LIBFFI
 				  +sizeof(ffi_type)+(nelts+1)*sizeof(ffi_type *)
@@ -1346,7 +1346,7 @@ static ffidl_type *type_alloc(ffidl_client *client, int nelts)
 /* free a type */
 static void type_free(ffidl_type *type)
 {
-  Tcl_Free((void *)type);
+  Jim_Free((void *)type);
 }
 /* maintain reference counts on type's */
 static void type_inc_ref(ffidl_type *type)
@@ -1455,7 +1455,7 @@ static ffidl_cif *cif_alloc(ffidl_client *client, int argc)
      the argument values,
      and the argument value pointers. */
   ffidl_cif *cif;
-  cif = (ffidl_cif *)Tcl_Alloc(sizeof(ffidl_cif)
+  cif = (ffidl_cif *)Jim_Alloc(sizeof(ffidl_cif)
 			       +argc*sizeof(ffidl_type*) /* atypes */
 #if USE_LIBFFI
 			       +argc*sizeof(ffi_type*) /* lib_atypes */
@@ -1477,7 +1477,7 @@ static ffidl_cif *cif_alloc(ffidl_client *client, int argc)
 /* free a cif */
 void cif_free(ffidl_cif *cif)
 {
-  Tcl_Free((void *)cif);
+  Jim_Free((void *)cif);
 }
 /* maintain reference counts on cif's */
 static void cif_inc_ref(ffidl_cif *cif)
@@ -1487,7 +1487,7 @@ static void cif_inc_ref(ffidl_cif *cif)
 static void cif_dec_ref(ffidl_cif *cif)
 {
   if (--cif->refs == 0) {
-    Tcl_DeleteHashEntry(cif_find(cif->client, cif));
+    Jim_DeleteHashEntry(cif_find(cif->client, cif));
     cif_free(cif);
   }
 }
@@ -1512,12 +1512,12 @@ static void cif_dec_ref(ffidl_cif *cif)
  */
 static int cif_type_parse(Tcl_Interp *interp, ffidl_client *client, Tcl_Obj *typename, ffidl_type **typePtr)
 {
-  char *arg = Tcl_GetString(typename);
+  char *arg = Jim_GetString(typename);
 
   /* lookup the type */
   *typePtr = type_lookup(client, arg);
   if (*typePtr == NULL) {
-    Tcl_AppendResult(interp, "no type defined for: ", arg, NULL);
+    Jim_AppendResult(interp, "no type defined for: ", arg, NULL);
     return TCL_ERROR;
   }
   return TCL_OK;
@@ -1534,8 +1534,8 @@ static int cif_type_check_context(Tcl_Interp *interp, unsigned context,
 				  Tcl_Obj *typeNameObj, ffidl_type *typePtr)
 {
   if ((context & typePtr->class) == 0) {
-    char *typeName = Tcl_GetString(typeNameObj);
-    Tcl_AppendResult(interp, "type ", typeName, " is not permitted in ",
+    char *typeName = Jim_GetString(typeNameObj);
+    Jim_AppendResult(interp, "type ", typeName, " is not permitted in ",
 		     (context&FFIDL_ARG) ? "argument" :  "return",
 		     " context.", NULL);
     return TCL_ERROR;
@@ -1616,7 +1616,7 @@ static int cif_protocol(Tcl_Interp *interp, Tcl_Obj *obj, int *protocolp, char *
 #if USE_LIBFFI
   if (obj != NULL) {
     int len = 0;
-    *protocolnamep = Tcl_GetStringFromObj(obj, &len);
+    *protocolnamep = Jim_GetStringFromObj(obj, &len);
     if (len == 0 || strcmp(*protocolnamep, "default") == 0) {
       *protocolp = FFI_DEFAULT_ABI;
       *protocolnamep = NULL;
@@ -1642,7 +1642,7 @@ static int cif_protocol(Tcl_Interp *interp, Tcl_Obj *obj, int *protocolp, char *
 #    endif  /* X86_64 */
 #  endif  /* X86_WIN64 */
     } else {
-      Tcl_AppendResult(interp, "unknown protocol \"", *protocolnamep,
+      Jim_AppendResult(interp, "unknown protocol \"", *protocolnamep,
 		       "\", must be cdecl or stdcall",
 		       NULL);
       return TCL_ERROR;
@@ -1669,29 +1669,29 @@ static int cif_parse(Tcl_Interp *interp, ffidl_client *client, Tcl_Obj *args, Tc
   Tcl_DString signature;
   ffidl_cif *cif = NULL;
   /* fetch argument types */
-  if (Tcl_ListObjGetElements(interp, args, &argc, &argv) == TCL_ERROR) return TCL_ERROR;
+  if (Jim_ListObjGetElements(interp, args, &argc, &argv) == TCL_ERROR) return TCL_ERROR;
   /* fetch protocol */
   if (cif_protocol(interp, pro, &protocol, &protocolname) == TCL_ERROR) return TCL_ERROR;
   /* build the cif signature key */
-  Tcl_DStringInit(&signature);
+  Jim_DStringInit(&signature);
   if (protocolname != NULL) {
-    Tcl_DStringAppend(&signature, protocolname, -1);
-    Tcl_DStringAppend(&signature, " ", 1);
+    Jim_DStringAppend(&signature, protocolname, -1);
+    Jim_DStringAppend(&signature, " ", 1);
   }
-  Tcl_DStringAppend(&signature, Tcl_GetString(ret), -1);
-  Tcl_DStringAppend(&signature, "(", 1);
+  Jim_DStringAppend(&signature, Jim_GetString(ret), -1);
+  Jim_DStringAppend(&signature, "(", 1);
   for (i = 0; i < argc; i += 1) {
-    if (i != 0) Tcl_DStringAppend(&signature, ",", 1);
-    Tcl_DStringAppend(&signature, Tcl_GetString(argv[i]), -1);
+    if (i != 0) Jim_DStringAppend(&signature, ",", 1);
+    Jim_DStringAppend(&signature, Jim_GetString(argv[i]), -1);
   }
-  Tcl_DStringAppend(&signature, ")", 1);
+  Jim_DStringAppend(&signature, ")", 1);
   /* lookup the signature in the cif hash */
-  cif = cif_lookup(client, Tcl_DStringValue(&signature));
+  cif = cif_lookup(client, Jim_DStringValue(&signature));
   if (cif == NULL) {
     cif = cif_alloc(client, argc);
     cif->protocol = protocol;
     if (cif == NULL) {
-      Tcl_AppendResult(interp, "couldn't allocate the ffidl_cif", NULL); 
+      Jim_AppendResult(interp, "couldn't allocate the ffidl_cif", NULL); 
       goto error;
     }
     /* parse return value spec */
@@ -1705,15 +1705,15 @@ static int cif_parse(Tcl_Interp *interp, ffidl_client *client, Tcl_Obj *args, Tc
       }
     /* see if we done right */
     if (cif_prep(cif) != TCL_OK) {
-      Tcl_AppendResult(interp, "type definition error", NULL);
+      Jim_AppendResult(interp, "type definition error", NULL);
       goto error;
     }
     /* define the cif */
-    cif_define(client, Tcl_DStringValue(&signature), cif);
-    Tcl_ResetResult(interp);
+    cif_define(client, Jim_DStringValue(&signature), cif);
+    Jim_ResetResult(interp);
   }
   /* free the signature string */
-  Tcl_DStringFree(&signature);
+  Jim_DStringFree(&signature);
   /* mark the cif as referenced */
   cif_inc_ref(cif);
   /* return success */
@@ -1723,7 +1723,7 @@ error:
   if (cif) {
     cif_free(cif);
   }
-  Tcl_DStringFree(&signature);
+  Jim_DStringFree(&signature);
   return TCL_ERROR;
 }
 /*
@@ -1751,8 +1751,8 @@ static void callout_delete(ClientData clientData)
   Tcl_HashEntry *entry = callout_find(callout->client, callout);
   if (entry) {
     cif_dec_ref(callout->cif);
-    Tcl_Free((void *)callout);
-    Tcl_DeleteHashEntry(entry);
+    Jim_Free((void *)callout);
+    Jim_DeleteHashEntry(entry);
   }
 }
 /**
@@ -1821,7 +1821,7 @@ static int callout_prep_value(Tcl_Interp *interp, unsigned context,
     break;
   default:
     sprintf(buff, "unknown ffidl_type.t = %d", typePtr->typecode);
-    Tcl_AppendResult(interp, buff, NULL);
+    Jim_AppendResult(interp, buff, NULL);
     return TCL_ERROR;
   }
   return TCL_OK;
@@ -1839,9 +1839,9 @@ static int callout_prep(ffidl_callout *callout)
   if (callout->use_raw_api) {
     /* rewrite callout->args[i] into a stack image */
     ptrdiff_t *offsets;
-    offsets = (ptrdiff_t *)Tcl_Alloc(sizeof(ptrdiff_t) * cif->argc);
+    offsets = (ptrdiff_t *)Jim_Alloc(sizeof(ptrdiff_t) * cif->argc);
     if (TCL_OK != cif_raw_prep_offsets(cif, offsets)) {
-      Tcl_Free((void *)offsets);
+      Jim_Free((void *)offsets);
       return TCL_ERROR;
     }
     /* fprintf(stderr, "using raw api for %d args\n", cif->argc); */
@@ -1852,7 +1852,7 @@ static int callout_prep(ffidl_callout *callout)
       /* fprintf(stderr, " becomes %08x\n", callout->args[i]); */
     }
     /* fprintf(stderr, "  final offset %d, bytes %d\n", offset, bytes); */
-    Tcl_Free((void *)offsets);
+    Jim_Free((void *)offsets);
   }
 #endif
   return TCL_OK;
@@ -1994,7 +1994,7 @@ static void callout_call(ffidl_callout *callout)
 /* define a new lib */
 static void lib_define(ffidl_client *client, char *lname, void *handle, void* unload)
 {
-  ffidl_lib *libentry = (ffidl_lib *)Tcl_Alloc(sizeof(ffidl_lib));
+  ffidl_lib *libentry = (ffidl_lib *)Jim_Alloc(sizeof(ffidl_lib));
   libentry->loadHandle = handle;
   libentry->unloadProc = unload;
   entry_define(&client->libs,lname,libentry);
@@ -2025,14 +2025,14 @@ static void callback_free(ffidl_callback *callback)
     int i;
     cif_dec_ref(callback->cif);
     for (i = 0; i < callback->cmdc; i++) {
-      Tcl_DecrRefCount(callback->cmdv[i]);
+      Jim_DecrRefCount(callback->cmdv[i]);
     }
 #if USE_LIBFFI
     ffi_closure_free(callback->closure.lib_closure);
 #elif USE_LIBFFCALL
     free_callback(callback->closure.lib_closure);
 #endif
-    Tcl_Free((void *)callback);
+    Jim_Free((void *)callback);
   }
 }
 /* define a new callback */
@@ -2063,7 +2063,7 @@ static void callback_delete(ffidl_client *client, ffidl_callback *callback)
   Tcl_HashEntry *entry = callback_find(client, callback);
   if (entry) {
     callback_free(callback);
-    Tcl_DeleteHashEntry(entry);
+    Jim_DeleteHashEntry(entry);
   }
 }
 */
@@ -2084,7 +2084,7 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
 #endif
   /* test for valid scope */
   if (interp == NULL) {
-    Tcl_Panic("callback called out of scope!\n");
+    Jim_Panic("callback called out of scope!\n");
   }
   /* initialize argument list */
   objv = callback->cmdv+callback->cmdc;
@@ -2103,36 +2103,36 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
 #endif
     switch (cif->atypes[i]->typecode) {
     case FFIDL_INT:
-      objv[i] = Tcl_NewLongObj((long)(*(int *)argp));
+      objv[i] = Jim_NewLongObj((long)(*(int *)argp));
       break;
     case FFIDL_FLOAT:
-      objv[i] = Tcl_NewDoubleObj((double)(*(float *)argp));
+      objv[i] = Jim_NewDoubleObj((double)(*(float *)argp));
       break;
     case FFIDL_DOUBLE:
-      objv[i] = Tcl_NewDoubleObj(*(double *)argp);
+      objv[i] = Jim_NewDoubleObj(*(double *)argp);
       break;
 #if HAVE_LONG_DOUBLE
     case FFIDL_LONGDOUBLE:
-      objv[i] = Tcl_NewDoubleObj((double)(*(long double *)argp));
+      objv[i] = Jim_NewDoubleObj((double)(*(long double *)argp));
       break;
 #endif
     case FFIDL_UINT8:
-      objv[i] = Tcl_NewLongObj((long)(*(UINT8_T *)argp));
+      objv[i] = Jim_NewLongObj((long)(*(UINT8_T *)argp));
       break;
     case FFIDL_SINT8:
-      objv[i] = Tcl_NewLongObj((long)(*(SINT8_T *)argp));
+      objv[i] = Jim_NewLongObj((long)(*(SINT8_T *)argp));
       break;
     case FFIDL_UINT16:
-      objv[i] = Tcl_NewLongObj((long)(*(UINT16_T *)argp));
+      objv[i] = Jim_NewLongObj((long)(*(UINT16_T *)argp));
       break;
     case FFIDL_SINT16:
-      objv[i] = Tcl_NewLongObj((long)(*(SINT16_T *)argp));
+      objv[i] = Jim_NewLongObj((long)(*(SINT16_T *)argp));
       break;
     case FFIDL_UINT32:
-      objv[i] = Tcl_NewLongObj((long)(*(UINT32_T *)argp));
+      objv[i] = Jim_NewLongObj((long)(*(UINT32_T *)argp));
       break;
     case FFIDL_SINT32:
-      objv[i] = Tcl_NewLongObj((long)(*(SINT32_T *)argp));
+      objv[i] = Jim_NewLongObj((long)(*(SINT32_T *)argp));
       break;
 #if HAVE_INT64
     case FFIDL_UINT64:
@@ -2143,7 +2143,7 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
       break;
 #endif
     case FFIDL_STRUCT:
-      objv[i] = Tcl_NewByteArrayObj((unsigned char *)argp, cif->atypes[i]->size);
+      objv[i] = Jim_NewByteArrayObj((unsigned char *)argp, cif->atypes[i]->size);
       break;
     case FFIDL_PTR:
       objv[i] = Ffidl_NewPointerObj((*(void **)argp));
@@ -2152,97 +2152,97 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
       objv[i] = *(Tcl_Obj **)argp;
       break;
     case FFIDL_PTR_UTF8:
-      objv[i] = Tcl_NewStringObj(*(char **)argp, -1);
+      objv[i] = Jim_NewStringObj(*(char **)argp, -1);
       break;
     case FFIDL_PTR_UTF16:
-      objv[i] = Tcl_NewUnicodeObj(*(Tcl_UniChar **)argp, -1);
+      objv[i] = Jim_NewUnicodeObj(*(Tcl_UniChar **)argp, -1);
       break;
     default:
       sprintf(buff, "unimplemented type for callback argument: %d", cif->atypes[i]->typecode);
-      Tcl_AppendResult(interp, buff, NULL);
+      Jim_AppendResult(interp, buff, NULL);
       while (i-- >= 0) {
-	Tcl_DecrRefCount(objv[i]);
+	Jim_DecrRefCount(objv[i]);
       }
       goto escape;
     }
-    Tcl_IncrRefCount(objv[i]);
+    Jim_IncrRefCount(objv[i]);
   }
   /* call */
-  status = Tcl_EvalObjv(interp, callback->cmdc+cif->argc, callback->cmdv, TCL_EVAL_GLOBAL);
+  status = Jim_EvalObjv(interp, callback->cmdc+cif->argc, callback->cmdv, TCL_EVAL_GLOBAL);
   /* clean up arguments */
   for (i = 0; i < cif->argc; i++) {
-    Tcl_DecrRefCount(objv[i]);
+    Jim_DecrRefCount(objv[i]);
   }
   if (status == TCL_ERROR) {
     goto escape;
   }
   /* fetch return value */
-  obj = Tcl_GetObjResult(interp);
+  obj = Jim_GetObjResult(interp);
   if (cif->rtype->class & FFIDL_GETINT) {
     if (obj->typePtr == ffidl_double_ObjType) {
-      if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       ltmp = (long)dtmp;
       if (dtmp != ltmp) {
-	if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
       }
-    } else if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
-      Tcl_AppendResult(interp, ", converting callback return value", NULL);
+    } else if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
+      Jim_AppendResult(interp, ", converting callback return value", NULL);
       goto escape;
     }
 #if HAVE_INT64
   } else if (cif->rtype->class & FFIDL_GETWIDEINT) {
     if (obj->typePtr == ffidl_double_ObjType) {
-      if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       wtmp = (Ffidl_Int64)dtmp;
       if (dtmp != wtmp) {
 	if (Ffidl_GetInt64FromObj(interp, obj, &wtmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
       }
     } else if (Ffidl_GetInt64FromObj(interp, obj, &wtmp) == TCL_ERROR) {
-      Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      Jim_AppendResult(interp, ", converting callback return value", NULL);
       goto escape;
     }
 #endif
   } else if (cif->rtype->class & FFIDL_GETDOUBLE) {
     if (obj->typePtr == ffidl_int_ObjType) {
-      if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       dtmp = (double)ltmp;
       if (dtmp != ltmp) {
-	if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
       }
 #if HAVE_WIDE_INT
     } else if (obj->typePtr == ffidl_wideInt_ObjType) {
-      if (Tcl_GetWideIntFromObj(interp, obj, &wtmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetWideIntFromObj(interp, obj, &wtmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       dtmp = (double)wtmp;
       if (dtmp != wtmp) {
-	if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
       }
 #endif
-    } else if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-      Tcl_AppendResult(interp, ", converting callback return value", NULL);
+    } else if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+      Jim_AppendResult(interp, ", converting callback return value", NULL);
       goto escape;
     }
   }
@@ -2269,11 +2269,11 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
   case FFIDL_STRUCT:
     {
       int len;
-      void *bytes = Tcl_GetByteArrayFromObj(obj, &len);
+      void *bytes = Jim_GetByteArrayFromObj(obj, &len);
       if (len != cif->rtype->size) {
-	Tcl_ResetResult(interp);
+	Jim_ResetResult(interp);
 	sprintf(buff, "byte array for callback struct return has %u bytes instead of %lu", len, (long)(cif->rtype->size));
-	Tcl_AppendResult(interp, buff, NULL);
+	Jim_AppendResult(interp, buff, NULL);
 	goto escape;
       }
       memcpy(ret, bytes, cif->rtype->size);
@@ -2286,15 +2286,15 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
 #endif
   case FFIDL_PTR_OBJ:	FFIDL_RVALUE_POKE_WIDENED(PTR, ret, obj); break;
   default:
-    Tcl_ResetResult(interp);
+    Jim_ResetResult(interp);
     sprintf(buff, "unimplemented type for callback return: %d", cif->rtype->typecode);
-    Tcl_AppendResult(interp, buff, NULL);
+    Jim_AppendResult(interp, buff, NULL);
     goto escape;
   }
   /* done */
   return;
 escape:
-  Tcl_BackgroundError(interp);
+  Jim_BackgroundError(interp);
   memset(ret, 0, cif->rtype->size);
 }
 #elif USE_LIBFFCALL
@@ -2313,7 +2313,7 @@ static void callback_callback(void *user_data, va_alist alist)
 #endif
   /* test for valid scope */
   if (interp == NULL) {
-    Tcl_Panic("callback called out of scope!\n");
+    Jim_Panic("callback called out of scope!\n");
   }
   /* initialize argument list */
   objv = callback->cmdv+callback->cmdc;
@@ -2337,40 +2337,40 @@ static void callback_callback(void *user_data, va_alist alist)
   case FFIDL_PTR:	va_start_ptr(alist,void *); break;
   case FFIDL_PTR_OBJ:	va_start_ptr(alist,Tcl_Obj *); break;
   default:
-    Tcl_ResetResult(interp);
+    Jim_ResetResult(interp);
     sprintf(buff, "unimplemented type for callback return: %d", cif->rtype->typecode);
-    Tcl_AppendResult(interp, buff, NULL);
+    Jim_AppendResult(interp, buff, NULL);
     goto escape;
   }
   /* fetch and convert argument values */
   for (i = 0; i < cif->argc; i++) {
     switch (cif->atypes[i]->typecode) {
     case FFIDL_INT:
-      objv[i] = Tcl_NewLongObj((long)va_arg_int(alist));
+      objv[i] = Jim_NewLongObj((long)va_arg_int(alist));
       break;
     case FFIDL_FLOAT:
-      objv[i] = Tcl_NewDoubleObj((double)va_arg_float(alist));
+      objv[i] = Jim_NewDoubleObj((double)va_arg_float(alist));
       break;
     case FFIDL_DOUBLE:
-      objv[i] = Tcl_NewDoubleObj(va_arg_double(alist));
+      objv[i] = Jim_NewDoubleObj(va_arg_double(alist));
       break;
     case FFIDL_UINT8:
-      objv[i] = Tcl_NewLongObj((long)va_arg_uint8(alist));
+      objv[i] = Jim_NewLongObj((long)va_arg_uint8(alist));
       break;
     case FFIDL_SINT8:
-      objv[i] = Tcl_NewLongObj((long)va_arg_sint8(alist));
+      objv[i] = Jim_NewLongObj((long)va_arg_sint8(alist));
       break;
     case FFIDL_UINT16:
-      objv[i] = Tcl_NewLongObj((long)va_arg_uint16(alist));
+      objv[i] = Jim_NewLongObj((long)va_arg_uint16(alist));
       break;
     case FFIDL_SINT16:
-      objv[i] = Tcl_NewLongObj((long)va_arg_sint16(alist));
+      objv[i] = Jim_NewLongObj((long)va_arg_sint16(alist));
       break;
     case FFIDL_UINT32:
-      objv[i] = Tcl_NewLongObj((long)va_arg_uint32(alist));
+      objv[i] = Jim_NewLongObj((long)va_arg_uint32(alist));
       break;
     case FFIDL_SINT32:
-      objv[i] = Tcl_NewLongObj((long)va_arg_sint32(alist));
+      objv[i] = Jim_NewLongObj((long)va_arg_sint32(alist));
       break;
 #if HAVE_INT64
     case FFIDL_UINT64:
@@ -2381,7 +2381,7 @@ static void callback_callback(void *user_data, va_alist alist)
       break;
 #endif
     case FFIDL_STRUCT:
-      objv[i] = Tcl_NewByteArrayObj(_va_arg_struct(alist,
+      objv[i] = Jim_NewByteArrayObj(_va_arg_struct(alist,
 						   cif->atypes[i]->size,
 						   cif->atypes[i]->alignment),
 				    cif->atypes[i]->size);
@@ -2393,96 +2393,96 @@ static void callback_callback(void *user_data, va_alist alist)
       objv[i] = va_arg_ptr(alist,Tcl_Obj *);
       break;
     case FFIDL_PTR_UTF8:
-      objv[i] = Tcl_NewStringObj(va_arg_ptr(alist,char *), -1);
+      objv[i] = Jim_NewStringObj(va_arg_ptr(alist,char *), -1);
       break;
     case FFIDL_PTR_UTF16:
-      objv[i] = Tcl_NewUnicodeObj(va_arg_ptr(alist,Tcl_UniChar *), -1);
+      objv[i] = Jim_NewUnicodeObj(va_arg_ptr(alist,Tcl_UniChar *), -1);
       break;
     default:
       sprintf(buff, "unimplemented type for callback argument: %d", cif->atypes[i]->typecode);
-      Tcl_AppendResult(interp, buff, NULL);
+      Jim_AppendResult(interp, buff, NULL);
       while (i-- >= 0) {
-	Tcl_DecrRefCount(objv[i]);
+	Jim_DecrRefCount(objv[i]);
       }
       goto escape;
     }
-    Tcl_IncrRefCount(objv[i]);
+    Jim_IncrRefCount(objv[i]);
   }
   /* call */
-  status = Tcl_EvalObjv(interp, callback->cmdc+cif->argc, callback->cmdv, TCL_EVAL_GLOBAL);
+  status = Jim_EvalObjv(interp, callback->cmdc+cif->argc, callback->cmdv, TCL_EVAL_GLOBAL);
   /* clean up arguments */
   for (i = 0; i < cif->argc; i++) {
-    Tcl_DecrRefCount(objv[i]);
+    Jim_DecrRefCount(objv[i]);
   }
   if (status == TCL_ERROR) {
     goto escape;
   }
   /* fetch return value */
-  obj = Tcl_GetObjResult(interp);
+  obj = Jim_GetObjResult(interp);
   if (cif->rtype->class & FFIDL_GETINT) {
     if (obj->typePtr == ffidl_double_ObjType) {
-      if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       ltmp = (long)dtmp;
       if (dtmp != ltmp)
-	if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
-    } else if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
-      Tcl_AppendResult(interp, ", converting callback return value", NULL);
+    } else if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
+      Jim_AppendResult(interp, ", converting callback return value", NULL);
       goto escape;
     }
 #if HAVE_INT64
   } else if (cif->rtype->class & FFIDL_GETWIDEINT) {
     if (obj->typePtr == ffidl_double_ObjType) {
-      if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       wtmp = (Ffidl_Int64)dtmp;
       if (dtmp != wtmp) {
 	if (Ffidl_GetInt64FromObj(interp, obj, &wtmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
       }
     } else if (Ffidl_GetInt64FromObj(interp, obj, &wtmp) == TCL_ERROR) {
-      Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      Jim_AppendResult(interp, ", converting callback return value", NULL);
       goto escape;
     }
 #endif
   } else if (cif->rtype->class & FFIDL_GETDOUBLE) {
     if (obj->typePtr == ffidl_int_ObjType) {
-      if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       dtmp = (double)ltmp;
       if (dtmp != ltmp) {
-	if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
       }
 #if HAVE_WIDE_INT
     } else if (obj->typePtr == ffidl_wideInt_ObjType) {
-      if (Tcl_GetWideIntFromObj(interp, obj, &wtmp) == TCL_ERROR) {
-	Tcl_AppendResult(interp, ", converting callback return value", NULL);
+      if (Jim_GetWideIntFromObj(interp, obj, &wtmp) == TCL_ERROR) {
+	Jim_AppendResult(interp, ", converting callback return value", NULL);
 	goto escape;
       }
       dtmp = (double)wtmp;
       if (dtmp != wtmp) {
-	if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-	  Tcl_AppendResult(interp, ", converting callback return value", NULL);
+	if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+	  Jim_AppendResult(interp, ", converting callback return value", NULL);
 	  goto escape;
 	}
       }
 #endif
-    } else if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
-      Tcl_AppendResult(interp, ", converting callback return value", NULL);
+    } else if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR) {
+      Jim_AppendResult(interp, ", converting callback return value", NULL);
       goto escape;
     }
   }
@@ -2506,11 +2506,11 @@ static void callback_callback(void *user_data, va_alist alist)
   case FFIDL_STRUCT:	
     {
       int len;
-      void *bytes = Tcl_GetByteArrayFromObj(obj, &len);
+      void *bytes = Jim_GetByteArrayFromObj(obj, &len);
       if (len != cif->rtype->size) {
-	Tcl_ResetResult(interp);
+	Jim_ResetResult(interp);
 	sprintf(buff, "byte array for callback struct return has %u bytes instead of %lu", len, (long)(cif->rtype->size));
-	Tcl_AppendResult(interp, buff, NULL);
+	Jim_AppendResult(interp, buff, NULL);
 	goto escape;
       }
       _va_return_struct(alist, cif->rtype->size, cif->rtype->alignment, bytes);
@@ -2519,15 +2519,15 @@ static void callback_callback(void *user_data, va_alist alist)
   case FFIDL_PTR:	va_return_ptr(alist, void *, ltmp); break;
   case FFIDL_PTR_OBJ:	va_return_ptr(alist, Tcl_Obj *, obj); break;
   default:
-    Tcl_ResetResult(interp);
+    Jim_ResetResult(interp);
     sprintf(buff, "unimplemented type for callback return: %d", cif->rtype->typecode);
-    Tcl_AppendResult(interp, buff, NULL);
+    Jim_AppendResult(interp, buff, NULL);
     goto escape;
   }
   /* done */
   return;
 escape:
-  Tcl_BackgroundError(interp);
+  Jim_BackgroundError(interp);
 }
 #endif
 #endif
@@ -2542,54 +2542,54 @@ static void client_delete(ClientData clientData, Tcl_Interp *interp)
   Tcl_HashEntry *entry;
 
   /* there should be no callouts left */
-  for (entry = Tcl_FirstHashEntry(&client->callouts, &search); entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-    char *name = Tcl_GetHashKey(&client->callouts, entry);
+  for (entry = Jim_FirstHashEntry(&client->callouts, &search); entry != NULL; entry = Jim_NextHashEntry(&search)) {
+    char *name = Jim_GetHashKey(&client->callouts, entry);
     /* Couldn't do this while traversing the hash table anyway */
-    /* Tcl_DeleteCommand(interp, name); */
+    /* Jim_DeleteCommand(interp, name); */
     fprintf(stderr, "error - dangling callout in client_delete: %s\n", name);
   }
 
 #if USE_CALLBACKS
   /* free all callbacks */
-  for (entry = Tcl_FirstHashEntry(&client->callbacks, &search); entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-    ffidl_callback *callback = Tcl_GetHashValue(entry);
+  for (entry = Jim_FirstHashEntry(&client->callbacks, &search); entry != NULL; entry = Jim_NextHashEntry(&search)) {
+    ffidl_callback *callback = Jim_GetHashValue(entry);
     callback_free(callback);
   }
 #endif
 
   /* there should be no cifs left */
-  for (entry = Tcl_FirstHashEntry(&client->cifs, &search); entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-    char *signature = Tcl_GetHashKey(&client->cifs, entry);
+  for (entry = Jim_FirstHashEntry(&client->cifs, &search); entry != NULL; entry = Jim_NextHashEntry(&search)) {
+    char *signature = Jim_GetHashKey(&client->cifs, entry);
     fprintf(stderr, "error - dangling ffidl_cif in client_delete: %s\n",signature);
   }
 
   /* free all allocated typedefs */
-  for (entry = Tcl_FirstHashEntry(&client->types, &search); entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-    ffidl_type *type = Tcl_GetHashValue(entry);
+  for (entry = Jim_FirstHashEntry(&client->types, &search); entry != NULL; entry = Jim_NextHashEntry(&search)) {
+    ffidl_type *type = Jim_GetHashValue(entry);
     if ((type->class & FFIDL_STATIC_TYPE) == 0) {
       type_dec_ref(type);
     }
   }
 
   /* free all libs */
-  for (entry = Tcl_FirstHashEntry(&client->libs, &search); entry != NULL; entry = Tcl_NextHashEntry(&search)) {
-    char *libraryName = Tcl_GetHashKey(&client->libs, entry);
-    ffidl_lib *libentry = Tcl_GetHashValue(entry);
+  for (entry = Jim_FirstHashEntry(&client->libs, &search); entry != NULL; entry = Jim_NextHashEntry(&search)) {
+    char *libraryName = Jim_GetHashKey(&client->libs, entry);
+    ffidl_lib *libentry = Jim_GetHashValue(entry);
     ffidlclose(interp, libraryName, libentry->loadHandle, libentry->unloadProc);
-    Tcl_Free((void *)libentry);
+    Jim_Free((void *)libentry);
   }
 
   /* free hashtables */
-  Tcl_DeleteHashTable(&client->callouts);
+  Jim_DeleteHashTable(&client->callouts);
 #if USE_CALLBACKS
-  Tcl_DeleteHashTable(&client->callbacks);
+  Jim_DeleteHashTable(&client->callbacks);
 #endif
-  Tcl_DeleteHashTable(&client->cifs);
-  Tcl_DeleteHashTable(&client->types);
-  Tcl_DeleteHashTable(&client->libs);
+  Jim_DeleteHashTable(&client->cifs);
+  Jim_DeleteHashTable(&client->types);
+  Jim_DeleteHashTable(&client->libs);
 
   /* free client structure */
-  Tcl_Free((void *)client);
+  Jim_Free((void *)client);
 }
 /* client allocation and initialization */
 static ffidl_client *client_alloc(Tcl_Interp *interp)
@@ -2597,15 +2597,15 @@ static ffidl_client *client_alloc(Tcl_Interp *interp)
   ffidl_client *client;
 
   /* allocate client data structure */
-  client = (ffidl_client *)Tcl_Alloc(sizeof(ffidl_client));
+  client = (ffidl_client *)Jim_Alloc(sizeof(ffidl_client));
 
   /* allocate hashtables for this load */
-  Tcl_InitHashTable(&client->types, TCL_STRING_KEYS);
-  Tcl_InitHashTable(&client->callouts, TCL_STRING_KEYS);
-  Tcl_InitHashTable(&client->cifs, TCL_STRING_KEYS);
-  Tcl_InitHashTable(&client->libs, TCL_STRING_KEYS);
+  Jim_InitHashTable(&client->types, TCL_STRING_KEYS);
+  Jim_InitHashTable(&client->callouts, TCL_STRING_KEYS);
+  Jim_InitHashTable(&client->cifs, TCL_STRING_KEYS);
+  Jim_InitHashTable(&client->libs, TCL_STRING_KEYS);
 #if USE_CALLBACKS
-  Tcl_InitHashTable(&client->callbacks, TCL_STRING_KEYS);
+  Jim_InitHashTable(&client->callbacks, TCL_STRING_KEYS);
 #endif
 
   /* initialize types */
@@ -2649,7 +2649,7 @@ static ffidl_client *client_alloc(Tcl_Interp *interp)
 #endif
 
   /* arrange for cleanup on interpreter deletion */
-  Tcl_CallWhenDeleted(interp, client_delete, (ClientData)client);
+  Jim_CallWhenDeleted(interp, client_delete, (ClientData)client);
 
   /* finis */
   return client;
@@ -2718,11 +2718,11 @@ static int tcl_ffidl_info(ClientData clientData, Tcl_Interp *interp, int objc, T
   };
 
   if (objc < minargs) {
-    Tcl_WrongNumArgs(interp, 1, objv, "option ?arg ...?");
+    Jim_WrongNumArgs(interp, 1, objv, "option ?arg ...?");
     return TCL_ERROR;
   }
 
-  if (Tcl_GetIndexFromObj(interp, objv[option_ix], options, "option", TCL_EXACT, &i) == TCL_ERROR)
+  if (Jim_GetIndexFromObj(interp, objv[option_ix], options, "option", TCL_EXACT, &i) == TCL_ERROR)
     return TCL_ERROR;
 
   switch (i) {
@@ -2730,11 +2730,11 @@ static int tcl_ffidl_info(ClientData clientData, Tcl_Interp *interp, int objc, T
     table = &client->callouts;
   list_table_keys:		/* list the keys in a hash table */
     if (objc != 2) {
-      Tcl_WrongNumArgs(interp,2,objv,"");
+      Jim_WrongNumArgs(interp,2,objv,"");
       return TCL_ERROR;
     }
-    for (entry = Tcl_FirstHashEntry(table, &search); entry != NULL; entry = Tcl_NextHashEntry(&search))
-      Tcl_ListObjAppendElement(interp, Tcl_GetObjResult(interp), Tcl_NewStringObj(Tcl_GetHashKey(table,entry),-1));
+    for (entry = Jim_FirstHashEntry(table, &search); entry != NULL; entry = Jim_NextHashEntry(&search))
+      Jim_ListObjAppendElement(interp, Jim_GetObjResult(interp), Jim_NewStringObj(Jim_GetHashKey(table,entry),-1));
     return TCL_OK;
   case INFO_TYPEDEFS:		/* return list of typedef names */
     table = &client->types;
@@ -2750,7 +2750,7 @@ static int tcl_ffidl_info(ClientData clientData, Tcl_Interp *interp, int objc, T
     table = &client->callbacks;
     goto list_table_keys;
 #else
-    Tcl_AppendResult(interp, "callbacks are not supported in this configuration", NULL);
+    Jim_AppendResult(interp, "callbacks are not supported in this configuration", NULL);
     return TCL_ERROR;
 #endif
 
@@ -2758,97 +2758,97 @@ static int tcl_ffidl_info(ClientData clientData, Tcl_Interp *interp, int objc, T
   case INFO_ALIGNOF:		/* return alignof type */
   case INFO_FORMAT:		/* return binary format of type */
     if (objc != 3) {
-      Tcl_WrongNumArgs(interp,2,objv,"type");
+      Jim_WrongNumArgs(interp,2,objv,"type");
       return TCL_ERROR;
     }
-    arg = Tcl_GetString(objv[2]);
+    arg = Jim_GetString(objv[2]);
     type = type_lookup(client, arg);
     if (type == NULL) {
-      Tcl_AppendResult(interp, "undefined type: ", arg, NULL);
+      Jim_AppendResult(interp, "undefined type: ", arg, NULL);
       return TCL_ERROR;
     }
     if (i == INFO_SIZEOF) {
-      Tcl_SetObjResult(interp, Tcl_NewIntObj(type->size));
+      Jim_SetObjResult(interp, Jim_NewIntObj(type->size));
       return TCL_OK;
     }
     if (i == INFO_ALIGNOF) {
-      Tcl_SetObjResult(interp, Tcl_NewIntObj(type->alignment));
+      Jim_SetObjResult(interp, Jim_NewIntObj(type->alignment));
       return TCL_OK;
     }
     if (i == INFO_FORMAT) {
       i = 0;
       return type_format(interp, type, &i);
     }
-    Tcl_AppendResult(interp, "lost in ::ffidl::info?", NULL);
+    Jim_AppendResult(interp, "lost in ::ffidl::info?", NULL);
     return TCL_ERROR;
   case INFO_INTERP:
     /* return the interp as integer */
     if (objc != 2) {
-      Tcl_WrongNumArgs(interp,2,objv,"");
+      Jim_WrongNumArgs(interp,2,objv,"");
       return TCL_ERROR;
     }
-    Tcl_SetObjResult(interp, Ffidl_NewPointerObj(interp));
+    Jim_SetObjResult(interp, Ffidl_NewPointerObj(interp));
     return TCL_OK;
   case INFO_USE_FFCALL:
   case INFO_USE_LIBFFCALL:
 #if USE_LIBFFCALL
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(1));
+    Jim_SetObjResult(interp, Jim_NewIntObj(1));
 #else
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(0));
+    Jim_SetObjResult(interp, Jim_NewIntObj(0));
 #endif
     return TCL_OK;
   case INFO_USE_LIBFFI:
 #if USE_LIBFFI
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(1));
+    Jim_SetObjResult(interp, Jim_NewIntObj(1));
 #else
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(0));
+    Jim_SetObjResult(interp, Jim_NewIntObj(0));
 #endif
     return TCL_OK;
   case INFO_USE_CALLBACKS:
 #if USE_CALLBACKS
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(1));
+    Jim_SetObjResult(interp, Jim_NewIntObj(1));
 #else
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(0));
+    Jim_SetObjResult(interp, Jim_NewIntObj(0));
 #endif
     return TCL_OK;
   case INFO_HAVE_LONG_LONG:
 #if HAVE_LONG_LONG
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(1));
+    Jim_SetObjResult(interp, Jim_NewIntObj(1));
 #else
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(0));
+    Jim_SetObjResult(interp, Jim_NewIntObj(0));
 #endif
     return TCL_OK;
   case INFO_HAVE_LONG_DOUBLE:
 #if HAVE_LONG_DOUBLE
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(1));
+    Jim_SetObjResult(interp, Jim_NewIntObj(1));
 #else
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(0));
+    Jim_SetObjResult(interp, Jim_NewIntObj(0));
 #endif
     return TCL_OK;
   case INFO_USE_LIBFFI_RAW:
 #if USE_LIBFFI_RAW_API
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(1));
+    Jim_SetObjResult(interp, Jim_NewIntObj(1));
 #else
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(0));
+    Jim_SetObjResult(interp, Jim_NewIntObj(0));
 #endif
     return TCL_OK;
   case INFO_HAVE_INT64:
 #if HAVE_INT64
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(1));
+    Jim_SetObjResult(interp, Jim_NewIntObj(1));
 #else
-    Tcl_SetObjResult(interp, Tcl_NewIntObj(0));
+    Jim_SetObjResult(interp, Jim_NewIntObj(0));
 #endif
     return TCL_OK;
   case INFO_CANONICAL_HOST:
-    Tcl_SetObjResult(interp, Tcl_NewStringObj(CANONICAL_HOST,-1));
+    Jim_SetObjResult(interp, Jim_NewStringObj(CANONICAL_HOST,-1));
     return TCL_OK;
   case INFO_NULL:
-    Tcl_SetObjResult(interp, Ffidl_NewPointerObj(NULL));
+    Jim_SetObjResult(interp, Ffidl_NewPointerObj(NULL));
     return TCL_OK;
   }
   
   /* return an error */
-  Tcl_AppendResult(interp, "missing option implementation: ", Tcl_GetString(objv[option_ix]), NULL);
+  Jim_AppendResult(interp, "missing option implementation: ", Jim_GetString(objv[option_ix]), NULL);
   return TCL_ERROR;
 }
 
@@ -2869,22 +2869,22 @@ static int tcl_ffidl_typedef(ClientData clientData, Tcl_Interp *interp, int objc
 
   /* check number of args */
   if (objc < minargs) {
-    Tcl_WrongNumArgs(interp,1,objv,"name type ?...?");
+    Jim_WrongNumArgs(interp,1,objv,"name type ?...?");
     return TCL_ERROR;
   }
   /* fetch new type name, verify that it is new */
-  tname1 = Tcl_GetString(objv[name_ix]);
+  tname1 = Jim_GetString(objv[name_ix]);
   if (type_lookup(client, tname1) != NULL) {
-    Tcl_AppendResult(interp, "type is already defined: ", tname1, NULL);
+    Jim_AppendResult(interp, "type is already defined: ", tname1, NULL);
     return TCL_ERROR;
   }
   nelts = objc - 2;
   if (nelts == 1) {
     /* define tname1 as an alias for tname2 */
-    tname2 = Tcl_GetString(objv[type_ix]);
+    tname2 = Jim_GetString(objv[type_ix]);
     ttype2 = type_lookup(client, tname2);
     if (ttype2 == NULL) {
-      Tcl_AppendResult(interp, "undefined type: ", tname2, NULL);
+      Jim_AppendResult(interp, "undefined type: ", tname2, NULL);
       return TCL_ERROR;
     }
     /* define alias */
@@ -2894,23 +2894,23 @@ static int tcl_ffidl_typedef(ClientData clientData, Tcl_Interp *interp, int objc
     /* allocate an aggregate type */
     newtype = type_alloc(client, nelts);
     if (newtype == NULL) {
-      Tcl_AppendResult(interp, "couldn't allocate the ffi_type", NULL);
+      Jim_AppendResult(interp, "couldn't allocate the ffi_type", NULL);
       return TCL_ERROR;
     }
     /* parse aggregate types */
     newtype->size = 0;
     newtype->alignment = 0;
     for (i = 0; i < nelts; i += 1) {
-      tname2 = Tcl_GetString(objv[type_ix+i]);
+      tname2 = Jim_GetString(objv[type_ix+i]);
       ttype2 = type_lookup(client, tname2);
       if (ttype2 == NULL) {
 	type_free(newtype);
-	Tcl_AppendResult(interp, "undefined element type: ", tname2, NULL);
+	Jim_AppendResult(interp, "undefined element type: ", tname2, NULL);
 	return TCL_ERROR;
       }
       if ((ttype2->class & FFIDL_ELT) == 0) {
 	type_free(newtype);
-	Tcl_AppendResult(interp, "type ", tname2, " is not permitted in element context", NULL);
+	Jim_AppendResult(interp, "type ", tname2, " is not permitted in element context", NULL);
 	return TCL_ERROR;
       }
       newtype->elements[i] = ttype2;
@@ -2929,7 +2929,7 @@ static int tcl_ffidl_typedef(ClientData clientData, Tcl_Interp *interp, int objc
     newtype->size = ((newtype->size-1) | (newtype->alignment-1)) + 1; /* tail padding as in libffi */
     if (type_prep(newtype) != TCL_OK) {
       type_free(newtype);
-      Tcl_AppendResult(interp, "type definition error", NULL);
+      Jim_AppendResult(interp, "type definition error", NULL);
       return TCL_ERROR;
     }
     /* define new type */
@@ -2962,7 +2962,7 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
 
   /* usage check */
   if (objc-args_ix != cif->argc) {
-    Tcl_WrongNumArgs(interp, 1, objv, callout->usage);
+    Jim_WrongNumArgs(interp, 1, objv, callout->usage);
     return TCL_ERROR;
   }
   /* fetch and convert argument values */
@@ -2972,18 +2972,18 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
     /* fetch value from object and store value into arg value array */
     if (cif->atypes[i]->class & FFIDL_GETINT) {
       if (obj->typePtr == ffidl_double_ObjType) {
-	if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
+	if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
 	  goto cleanup;
 	ltmp = (long)dtmp;
 	if (dtmp != ltmp)
-	  if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR)
+	  if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR)
 	    goto cleanup;
-      } else if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR)
+      } else if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR)
 	goto cleanup;
 #if HAVE_INT64
     } else if (cif->atypes[i]->class & FFIDL_GETWIDEINT) {
       if (obj->typePtr == ffidl_double_ObjType) {
-	if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
+	if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
 	  goto cleanup;
 	wtmp = (Ffidl_Int64)dtmp;
 	if (dtmp != wtmp) {
@@ -2997,22 +2997,22 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
 #endif
     } else if (cif->atypes[i]->class & FFIDL_GETDOUBLE) {
       if (obj->typePtr == ffidl_int_ObjType) {
-	if (Tcl_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR)
+	if (Jim_GetLongFromObj(interp, obj, &ltmp) == TCL_ERROR)
 	  goto cleanup;
 	dtmp = (double)ltmp;
 	if (dtmp != ltmp)
-	  if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
+	  if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
 	    goto cleanup;
 #if HAVE_WIDE_INT
       } else if (obj->typePtr == ffidl_wideInt_ObjType) {
-	if (Tcl_GetWideIntFromObj(interp, obj, &wtmp) == TCL_ERROR)
+	if (Jim_GetWideIntFromObj(interp, obj, &wtmp) == TCL_ERROR)
 	  goto cleanup;
 	dtmp = (double)wtmp;
 	if (dtmp != wtmp)
-	  if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
+	  if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
 	    goto cleanup;
 #endif
-      } else if (Tcl_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
+      } else if (Jim_GetDoubleFromObj(interp, obj, &dtmp) == TCL_ERROR)
 	goto cleanup;
     }
     switch (cif->atypes[i]->typecode) {
@@ -3059,13 +3059,13 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
     case FFIDL_STRUCT:
       if (obj->typePtr != ffidl_bytearray_ObjType) {
 	sprintf(buff, "parameter %d must be a binary string", i);
-	Tcl_AppendResult(interp, buff, NULL);
+	Jim_AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
-      callout->args[i] = (void *)Tcl_GetByteArrayFromObj(obj, &itmp);
+      callout->args[i] = (void *)Jim_GetByteArrayFromObj(obj, &itmp);
       if (itmp != cif->atypes[i]->size) {
 	sprintf(buff, "parameter %d is the wrong size, %u bytes instead of %lu.", i, itmp, (long)(cif->atypes[i]->size));
-	Tcl_AppendResult(interp, buff, NULL);
+	Jim_AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
       continue;
@@ -3080,58 +3080,58 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
       *(void **)callout->args[i] = (void *)obj;
       continue;
     case FFIDL_PTR_UTF8:
-      *(void **)callout->args[i] = (void *)Tcl_GetString(obj);
+      *(void **)callout->args[i] = (void *)Jim_GetString(obj);
       continue;
     case FFIDL_PTR_UTF16:
-      *(void **)callout->args[i] = (void *)Tcl_GetUnicode(obj);
+      *(void **)callout->args[i] = (void *)Jim_GetUnicode(obj);
       continue;
     case FFIDL_PTR_BYTE:
       if (obj->typePtr != ffidl_bytearray_ObjType) {
 	sprintf(buff, "parameter %d must be a binary string", i);
-	Tcl_AppendResult(interp, buff, NULL);
+	Jim_AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
-      *(void **)callout->args[i] = (void *)Tcl_GetByteArrayFromObj(obj, &itmp);
+      *(void **)callout->args[i] = (void *)Jim_GetByteArrayFromObj(obj, &itmp);
       continue;
     case FFIDL_PTR_VAR:
-      obj = Tcl_ObjGetVar2(interp, objv[args_ix+i], NULL, TCL_LEAVE_ERR_MSG);
+      obj = Jim_ObjGetVar2(interp, objv[args_ix+i], NULL, TCL_LEAVE_ERR_MSG);
       if (obj == NULL) return TCL_ERROR;
       if (obj->typePtr != ffidl_bytearray_ObjType) {
 	sprintf(buff, "parameter %d must be a binary string", i);
-	Tcl_AppendResult(interp, buff, NULL);
+	Jim_AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
-      if (Tcl_IsShared(obj)) {
-	obj = Tcl_ObjSetVar2(interp, objv[args_ix+i], NULL, Tcl_DuplicateObj(obj), TCL_LEAVE_ERR_MSG);
+      if (Jim_IsShared(obj)) {
+	obj = Jim_ObjSetVar2(interp, objv[args_ix+i], NULL, Jim_DuplicateObj(obj), TCL_LEAVE_ERR_MSG);
 	if (obj == NULL) {
 	  goto cleanup;
 	}
       }
-      *(void **)callout->args[i] = (void *)Tcl_GetByteArrayFromObj(obj, &itmp);
+      *(void **)callout->args[i] = (void *)Jim_GetByteArrayFromObj(obj, &itmp);
       /* printf("pointer-var -> %d\n", cif->avalues[i].v_pointer); */
-      Tcl_InvalidateStringRep(obj);
+      Jim_InvalidateStringRep(obj);
       continue;
 #if USE_CALLBACKS
     case FFIDL_PTR_PROC: {
       ffidl_callback *callback;
       ffidl_closure *closure;
       Tcl_DString ds;
-      char *name = Tcl_GetString(objv[args_ix+i]);
-      Tcl_DStringInit(&ds);
+      char *name = Jim_GetString(objv[args_ix+i]);
+      Jim_DStringInit(&ds);
       if (!strstr(name, "::")) {
         Tcl_Namespace *ns;
-        ns = Tcl_GetCurrentNamespace(interp);
-        if (ns != Tcl_GetGlobalNamespace(interp)) {
-          Tcl_DStringAppend(&ds, ns->fullName, -1);
+        ns = Jim_GetCurrentNamespace(interp);
+        if (ns != Jim_GetGlobalNamespace(interp)) {
+          Jim_DStringAppend(&ds, ns->fullName, -1);
         }
-        Tcl_DStringAppend(&ds, "::", 2);
-        Tcl_DStringAppend(&ds, name, -1);
-        name = Tcl_DStringValue(&ds);
+        Jim_DStringAppend(&ds, "::", 2);
+        Jim_DStringAppend(&ds, name, -1);
+        name = Jim_DStringValue(&ds);
       }
       callback = callback_lookup(callout->client, name);
-      Tcl_DStringFree(&ds);
+      Jim_DStringFree(&ds);
       if (callback == NULL) {
-	Tcl_AppendResult(interp, "no callback named \"", Tcl_GetString(objv[args_ix+i]), "\" is defined", NULL);
+	Jim_AppendResult(interp, "no callback named \"", Jim_GetString(objv[args_ix+i]), "\" is defined", NULL);
 	goto cleanup;
       }
       closure = &(callback->closure);
@@ -3145,47 +3145,47 @@ static int tcl_ffidl_call(ClientData clientData, Tcl_Interp *interp, int objc, T
 #endif
     default:
       sprintf(buff, "unknown type for argument: %d", cif->atypes[i]->typecode);
-      Tcl_AppendResult(interp, buff, NULL);
+      Jim_AppendResult(interp, buff, NULL);
       goto cleanup;
     }
     /* Note: change "continue" to "break" if further work must be done here. */
   }
   /* prepare for structure return */
   if (cif->rtype->typecode == FFIDL_STRUCT) {
-    obj = Tcl_NewByteArrayObj(NULL, 0);
-    Tcl_SetByteArrayLength(obj, cif->rtype->size);
-    Tcl_IncrRefCount(obj);
-    callout->ret = Tcl_GetByteArrayFromObj(obj, &itmp);
+    obj = Jim_NewByteArrayObj(NULL, 0);
+    Jim_SetByteArrayLength(obj, cif->rtype->size);
+    Jim_IncrRefCount(obj);
+    callout->ret = Jim_GetByteArrayFromObj(obj, &itmp);
   }
   /* call */
   callout_call(callout);
   /* convert return value */
   switch (cif->rtype->typecode) {
   case FFIDL_VOID:	break;
-  case FFIDL_INT:	Tcl_SetObjResult(interp, Tcl_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(INT, callout->ret))); break;
-  case FFIDL_FLOAT:	Tcl_SetObjResult(interp, Tcl_NewDoubleObj((double)FFIDL_RVALUE_PEEK_UNWIDEN(FLOAT, callout->ret))); break;
-  case FFIDL_DOUBLE:	Tcl_SetObjResult(interp, Tcl_NewDoubleObj((double)FFIDL_RVALUE_PEEK_UNWIDEN(DOUBLE, callout->ret))); break;
+  case FFIDL_INT:	Jim_SetObjResult(interp, Jim_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(INT, callout->ret))); break;
+  case FFIDL_FLOAT:	Jim_SetObjResult(interp, Jim_NewDoubleObj((double)FFIDL_RVALUE_PEEK_UNWIDEN(FLOAT, callout->ret))); break;
+  case FFIDL_DOUBLE:	Jim_SetObjResult(interp, Jim_NewDoubleObj((double)FFIDL_RVALUE_PEEK_UNWIDEN(DOUBLE, callout->ret))); break;
 #if HAVE_LONG_DOUBLE
-  case FFIDL_LONGDOUBLE:Tcl_SetObjResult(interp, Tcl_NewDoubleObj((double)FFIDL_RVALUE_PEEK_UNWIDEN(LONGDOUBLE, callout->ret))); break;
+  case FFIDL_LONGDOUBLE:Jim_SetObjResult(interp, Jim_NewDoubleObj((double)FFIDL_RVALUE_PEEK_UNWIDEN(LONGDOUBLE, callout->ret))); break;
 #endif
-  case FFIDL_UINT8:	Tcl_SetObjResult(interp, Tcl_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(UINT8, callout->ret))); break;
-  case FFIDL_SINT8:	Tcl_SetObjResult(interp, Tcl_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(SINT8, callout->ret))); break;
-  case FFIDL_UINT16:	Tcl_SetObjResult(interp, Tcl_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(UINT16, callout->ret))); break;
-  case FFIDL_SINT16:	Tcl_SetObjResult(interp, Tcl_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(SINT16, callout->ret))); break;
-  case FFIDL_UINT32:	Tcl_SetObjResult(interp, Tcl_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(UINT32, callout->ret))); break;
-  case FFIDL_SINT32:	Tcl_SetObjResult(interp, Tcl_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(SINT32, callout->ret))); break;
+  case FFIDL_UINT8:	Jim_SetObjResult(interp, Jim_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(UINT8, callout->ret))); break;
+  case FFIDL_SINT8:	Jim_SetObjResult(interp, Jim_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(SINT8, callout->ret))); break;
+  case FFIDL_UINT16:	Jim_SetObjResult(interp, Jim_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(UINT16, callout->ret))); break;
+  case FFIDL_SINT16:	Jim_SetObjResult(interp, Jim_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(SINT16, callout->ret))); break;
+  case FFIDL_UINT32:	Jim_SetObjResult(interp, Jim_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(UINT32, callout->ret))); break;
+  case FFIDL_SINT32:	Jim_SetObjResult(interp, Jim_NewLongObj((long)FFIDL_RVALUE_PEEK_UNWIDEN(SINT32, callout->ret))); break;
 #if HAVE_INT64
-  case FFIDL_UINT64:	Tcl_SetObjResult(interp, Ffidl_NewInt64Obj((Ffidl_Int64)FFIDL_RVALUE_PEEK_UNWIDEN(UINT64, callout->ret))); break;
-  case FFIDL_SINT64:	Tcl_SetObjResult(interp, Ffidl_NewInt64Obj((Ffidl_Int64)FFIDL_RVALUE_PEEK_UNWIDEN(SINT64, callout->ret))); break;
+  case FFIDL_UINT64:	Jim_SetObjResult(interp, Ffidl_NewInt64Obj((Ffidl_Int64)FFIDL_RVALUE_PEEK_UNWIDEN(UINT64, callout->ret))); break;
+  case FFIDL_SINT64:	Jim_SetObjResult(interp, Ffidl_NewInt64Obj((Ffidl_Int64)FFIDL_RVALUE_PEEK_UNWIDEN(SINT64, callout->ret))); break;
 #endif
-  case FFIDL_STRUCT:	Tcl_SetObjResult(interp, obj); Tcl_DecrRefCount(obj); break;
-  case FFIDL_PTR:	Tcl_SetObjResult(interp, Ffidl_NewPointerObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret))); break;
-  case FFIDL_PTR_OBJ:	Tcl_SetObjResult(interp, (Tcl_Obj *)FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret)); break;
-  case FFIDL_PTR_UTF8:	Tcl_SetObjResult(interp, Tcl_NewStringObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret), -1)); break;
-  case FFIDL_PTR_UTF16:	Tcl_SetObjResult(interp, Tcl_NewUnicodeObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret), -1)); break;
+  case FFIDL_STRUCT:	Jim_SetObjResult(interp, obj); Jim_DecrRefCount(obj); break;
+  case FFIDL_PTR:	Jim_SetObjResult(interp, Ffidl_NewPointerObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret))); break;
+  case FFIDL_PTR_OBJ:	Jim_SetObjResult(interp, (Tcl_Obj *)FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret)); break;
+  case FFIDL_PTR_UTF8:	Jim_SetObjResult(interp, Jim_NewStringObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret), -1)); break;
+  case FFIDL_PTR_UTF16:	Jim_SetObjResult(interp, Jim_NewUnicodeObj(FFIDL_RVALUE_PEEK_UNWIDEN(PTR, callout->ret), -1)); break;
   default:
     sprintf(buff, "Invalid return type: %d", cif->rtype->typecode);
-    Tcl_AppendResult(interp, buff, NULL);
+    Jim_AppendResult(interp, buff, NULL);
     goto cleanup;
   }    
   /* done */
@@ -3222,22 +3222,22 @@ static int tcl_ffidl_callout(ClientData clientData, Tcl_Interp *interp, int objc
 
   /* usage check */
   if (objc != minargs && objc != maxargs) {
-    Tcl_WrongNumArgs(interp, 1, objv, "name {?argument_type ...?} return_type address ?protocol?");
+    Jim_WrongNumArgs(interp, 1, objv, "name {?argument_type ...?} return_type address ?protocol?");
     return TCL_ERROR;
   }
-  Tcl_DStringInit(&ds);
-  Tcl_DStringInit(&usage);
+  Jim_DStringInit(&ds);
+  Jim_DStringInit(&usage);
   /* fetch name */
-  name = Tcl_GetString(objv[name_ix]);
+  name = Jim_GetString(objv[name_ix]);
   if (!strstr(name, "::")) {
     Tcl_Namespace *ns;
-    ns = Tcl_GetCurrentNamespace(interp);
-    if (ns != Tcl_GetGlobalNamespace(interp)) {
-      Tcl_DStringAppend(&ds, ns->fullName, -1);
+    ns = Jim_GetCurrentNamespace(interp);
+    if (ns != Jim_GetGlobalNamespace(interp)) {
+      Jim_DStringAppend(&ds, ns->fullName, -1);
     }
-    Tcl_DStringAppend(&ds, "::", 2);
-    Tcl_DStringAppend(&ds, name, -1);
-    name = Tcl_DStringValue(&ds);
+    Jim_DStringAppend(&ds, "::", 2);
+    Jim_DStringAppend(&ds, name, -1);
+    name = Jim_DStringValue(&ds);
   }
   /* fetch cif */
   if (cif_parse(interp, client,
@@ -3253,25 +3253,25 @@ static int tcl_ffidl_callout(ClientData clientData, Tcl_Interp *interp, int objc
   }
   /* if callout is already defined, redefine it */
   if ((callout = callout_lookup(client, name))) {
-    Tcl_DeleteCommand(interp, name);
+    Jim_DeleteCommand(interp, name);
   }
   /* build the usage string */
-  Tcl_ListObjGetElements(interp, objv[args_ix], &argc, &argv);
+  Jim_ListObjGetElements(interp, objv[args_ix], &argc, &argv);
   for (i = 0; i < argc; i += 1) {
-    if (i != 0) Tcl_DStringAppend(&usage, " ", 1);
-    Tcl_DStringAppend(&usage, Tcl_GetString(argv[i]), -1);
+    if (i != 0) Jim_DStringAppend(&usage, " ", 1);
+    Jim_DStringAppend(&usage, Jim_GetString(argv[i]), -1);
   }
   /* allocate the callout structure, including:
      - usage string
      - argument value pointers
      - argument values */
-  callout = (ffidl_callout *)Tcl_Alloc(sizeof(ffidl_callout)
+  callout = (ffidl_callout *)Jim_Alloc(sizeof(ffidl_callout)
 				       +cif->argc*sizeof(void*) /* args */
 				       +sizeof(ffidl_value)	/* rvalue */
 				       +cif->argc*sizeof(ffidl_value) /* avalues */
-				       +Tcl_DStringLength(&usage)+1); /* usage */
+				       +Jim_DStringLength(&usage)+1); /* usage */
   if (callout == NULL) {
-    Tcl_AppendResult(interp, "can't allocate ffidl_callout for: ", name, NULL);
+    Jim_AppendResult(interp, "can't allocate ffidl_callout for: ", name, NULL);
     goto error;
   }
   /* initialize the callout */
@@ -3297,18 +3297,18 @@ static int tcl_ffidl_callout(ClientData clientData, Tcl_Interp *interp, int objc
   callout_prep(callout);
   /* set up usage string */
   callout->usage = (char *)((avalues+cif->argc));
-  strcpy(callout->usage, Tcl_DStringValue(&usage));
+  strcpy(callout->usage, Jim_DStringValue(&usage));
   /* free the usage string */
-  Tcl_DStringFree(&usage);
+  Jim_DStringFree(&usage);
   /* define the callout */
   callout_define(client, name, callout);
   /* create the tcl command */
-  res = Tcl_CreateObjCommand(interp, name, tcl_ffidl_call, (ClientData) callout, callout_delete);
-  Tcl_DStringFree(&ds);
+  res = Jim_CreateObjCommand(interp, name, tcl_ffidl_call, (ClientData) callout, callout_delete);
+  Jim_DStringFree(&ds);
   return (res ? TCL_OK : TCL_ERROR);
 error:
-  Tcl_DStringFree(&ds);
-  Tcl_DStringFree(&usage);
+  Jim_DStringFree(&ds);
+  Jim_DStringFree(&usage);
   if (cif) {
     cif_dec_ref(cif);
   }
@@ -3347,21 +3347,21 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
 
   /* usage check */
   if (objc < minargs || objc > maxargs) {
-    Tcl_WrongNumArgs(interp, 1, objv, "name {?argument_type ...?} return_type ?protocol? ?cmdprefix?");
+    Jim_WrongNumArgs(interp, 1, objv, "name {?argument_type ...?} return_type ?protocol? ?cmdprefix?");
     return TCL_ERROR;
   }
   /* fetch name */
-  Tcl_DStringInit(&ds);
-  name = Tcl_GetString(objv[name_ix]);
+  Jim_DStringInit(&ds);
+  name = Jim_GetString(objv[name_ix]);
   if (!strstr(name, "::")) {
     Tcl_Namespace *ns;
-    ns = Tcl_GetCurrentNamespace(interp);
-    if (ns != Tcl_GetGlobalNamespace(interp)) {
-      Tcl_DStringAppend(&ds, ns->fullName, -1);
+    ns = Jim_GetCurrentNamespace(interp);
+    if (ns != Jim_GetGlobalNamespace(interp)) {
+      Jim_DStringAppend(&ds, ns->fullName, -1);
     }
-    Tcl_DStringAppend(&ds, "::", 2);
-    Tcl_DStringAppend(&ds, name, -1);
-    name = Tcl_DStringValue(&ds);
+    Jim_DStringAppend(&ds, "::", 2);
+    Jim_DStringAppend(&ds, name, -1);
+    name = Jim_DStringValue(&ds);
   }
   /* fetch cif */
   if (cif_parse(interp, client,
@@ -3376,7 +3376,7 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
 			     objv[return_ix], cif->rtype) == TCL_ERROR) {
     goto error;
   }
-  Tcl_ListObjGetElements(interp, objv[args_ix], &argc, &argv);
+  Jim_ListObjGetElements(interp, objv[args_ix], &argc, &argv);
   for (i = 0; i < argc; i += 1)
     if (cif_type_check_context(interp, FFIDL_ARG,
 			       objv[args_ix], cif->atypes[i]) == TCL_ERROR) {
@@ -3385,24 +3385,24 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
   /* create Tcl proc */
   if (has_cmdprefix) {
     Tcl_Obj *cmdprefix = objv[cmdprefix_ix];
-    Tcl_IncrRefCount(cmdprefix);
-    if (Tcl_ListObjGetElements(interp, cmdprefix, &cmdc, &cmdv) != TCL_OK) {
+    Jim_IncrRefCount(cmdprefix);
+    if (Jim_ListObjGetElements(interp, cmdprefix, &cmdc, &cmdv) != TCL_OK) {
       goto error;
     }
     for (i = 0; i < cmdc; i++) {
-      Tcl_IncrRefCount(cmdv[i]);
+      Jim_IncrRefCount(cmdv[i]);
     }
-    Tcl_DecrRefCount(cmdprefix);
+    Jim_DecrRefCount(cmdprefix);
   } else {
     /* the callback name is the command */
-    nameObj = Tcl_NewStringObj(name, -1);
+    nameObj = Jim_NewStringObj(name, -1);
     cmdv = &nameObj;
     cmdc = 1;
-    Tcl_IncrRefCount(nameObj);
+    Jim_IncrRefCount(nameObj);
   }
 
   /* allocate the callback structure */
-  callback = (ffidl_callback *)Tcl_Alloc(sizeof(ffidl_callback)
+  callback = (ffidl_callback *)Jim_Alloc(sizeof(ffidl_callback)
 					 /* cmdprefix and argument Tcl_Objs */
 					 +(cmdc+cif->argc)*sizeof(Tcl_Obj *)
 #if USE_LIBFFI_RAW_API
@@ -3411,7 +3411,7 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
 #endif
   );
   if (callback == NULL) {
-    Tcl_AppendResult(interp, "can't allocate ffidl_callback for: ", name, NULL);
+    Jim_AppendResult(interp, "can't allocate ffidl_callback for: ", name, NULL);
     goto error;
   }
   /* initialize the callback */
@@ -3446,7 +3446,7 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
     if (ffi_prep_closure_loc(closure->lib_closure, &callback->cif->lib_cif,
                             (void (*)(ffi_cif*,void*,void**,void*))callback_callback,
                             (void *)callback, closure->executable) != FFI_OK) {
-      Tcl_AppendResult(interp, "libffi can't make closure for: ", name, NULL);
+      Jim_AppendResult(interp, "libffi can't make closure for: ", name, NULL);
       goto error;
     }
   }
@@ -3456,7 +3456,7 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
 #endif
   /* define the callback */
   callback_define(client, name, callback);
-  Tcl_DStringFree(&ds);
+  Jim_DStringFree(&ds);
 
   /* Return function pointer to the callback. */
 #if USE_LIBFFI
@@ -3464,18 +3464,18 @@ static int tcl_ffidl_callback(ClientData clientData, Tcl_Interp *interp, int obj
 #elif USE_LIBFFCALL
   fn = (void (*)())closure->lib_closure;
 #endif
-  Tcl_SetObjResult(interp, Ffidl_NewPointerObj(fn));
+  Jim_SetObjResult(interp, Ffidl_NewPointerObj(fn));
 
   return TCL_OK;
 
 error:
-  Tcl_DStringFree(&ds);
+  Jim_DStringFree(&ds);
   if (cif) {
     cif_dec_ref(cif);
   }
   if (cmdv) {
     for (i = 0; i < cmdc; i++) {
-      Tcl_DecrRefCount(cmdv[i]);
+      Jim_DecrRefCount(cmdv[i]);
     }
   }
   if (closure && closure->lib_closure) {
@@ -3486,7 +3486,7 @@ error:
 #endif
   }
   if (callback) {
-      Tcl_Free((void *)callback);
+      Jim_Free((void *)callback);
   }
   return TCL_ERROR;
 }
@@ -3545,17 +3545,17 @@ static int tcl_ffidl_library(ClientData clientData, Tcl_Interp *interp, int objc
   ffidl_client *client = (ffidl_client *)clientData;
 
   if (objc < minargs) {
-    Tcl_WrongNumArgs(interp, 1, objv, "?flags? ?--? library");
+    Jim_WrongNumArgs(interp, 1, objv, "?flags? ?--? library");
     return TCL_ERROR;
   }
 
   for (i = optional_ix; i < objc; ++i) {
       int option;
-      int status = Tcl_GetIndexFromObj(interp, objv[i], options,
+      int status = Jim_GetIndexFromObj(interp, objv[i], options,
                                        "option", 0, &option);
       if (status != TCL_OK) {
 	/* No options. */
-	Tcl_ResetResult(interp);
+	Jim_ResetResult(interp);
 	break;
       }
 
@@ -3571,7 +3571,7 @@ static int tcl_ffidl_library(ClientData clientData, Tcl_Interp *interp, int objc
 	  int bindingOption;
 
 	  i++;
-	  int status = Tcl_GetIndexFromObj(interp, objv[i], bindingOptions,
+	  int status = Jim_GetIndexFromObj(interp, objv[i], bindingOptions,
 					   "binding", 0, &bindingOption);
 	  if (status != TCL_OK) {
 	    return TCL_ERROR;
@@ -3592,7 +3592,7 @@ static int tcl_ffidl_library(ClientData clientData, Tcl_Interp *interp, int objc
 	  int visibilityOption;
 
 	  i++;
-	  int status = Tcl_GetIndexFromObj(interp, objv[i], visibilityOptions,
+	  int status = Jim_GetIndexFromObj(interp, objv[i], visibilityOptions,
 					   "visibility", 0, &visibilityOption);
 	  if (status != TCL_OK) {
 	    return TCL_ERROR;
@@ -3615,11 +3615,11 @@ static int tcl_ffidl_library(ClientData clientData, Tcl_Interp *interp, int objc
   }
 
   libraryObj = objv[i];
-  libraryName = Tcl_GetString(libraryObj);
+  libraryName = Jim_GetString(libraryObj);
   handle = lib_lookup(client, libraryName, NULL);
 
   if (handle != NULL) {
-    Tcl_AppendResult(interp, "library \"", libraryName, "\" already loaded", NULL);
+    Jim_AppendResult(interp, "library \"", libraryName, "\" already loaded", NULL);
     return TCL_ERROR;
   }
 
@@ -3649,11 +3649,11 @@ static int tcl_ffidl_symbol(ClientData clientData, Tcl_Interp *interp, int objc,
   ffidl_client *client = (ffidl_client *)clientData;
 
   if (objc != nargs) {
-    Tcl_WrongNumArgs(interp,1,objv,"library symbol");
+    Jim_WrongNumArgs(interp,1,objv,"library symbol");
     return TCL_ERROR;
   }
 
-  library = Tcl_GetString(objv[library_ix]);
+  library = Jim_GetString(objv[library_ix]);
   handle = lib_lookup(client, library, NULL);
 
   if (handle == NULL) {
@@ -3668,7 +3668,7 @@ static int tcl_ffidl_symbol(ClientData clientData, Tcl_Interp *interp, int objc,
     return TCL_ERROR;
   }
 
-  Tcl_SetObjResult(interp, Ffidl_NewPointerObj(address));
+  Jim_SetObjResult(interp, Ffidl_NewPointerObj(address));
   return TCL_OK;
 }
 
@@ -3703,16 +3703,16 @@ static int tcl_ffidl_stubsymbol(ClientData clientData, Tcl_Interp *interp, int o
   };
 
   if (objc != 4) {
-    Tcl_WrongNumArgs(interp,1,objv,"library stubstable symbolnumber");
+    Jim_WrongNumArgs(interp,1,objv,"library stubstable symbolnumber");
     return TCL_ERROR;
   }
-  if (Tcl_GetIndexFromObj(interp, objv[library_ix], library_names, "library", 0, &library) != TCL_OK) {
+  if (Jim_GetIndexFromObj(interp, objv[library_ix], library_names, "library", 0, &library) != TCL_OK) {
     return TCL_ERROR;
   }
-  if (Tcl_GetIndexFromObj(interp, objv[stubstable_ix], stubstable_names, "stubstable", 0, &stubstable) != TCL_OK) {
+  if (Jim_GetIndexFromObj(interp, objv[stubstable_ix], stubstable_names, "stubstable", 0, &stubstable) != TCL_OK) {
     return TCL_ERROR;
   }
-  if (Tcl_GetIntFromObj(interp, objv[symbol_ix], &symbolnumber) != TCL_OK || symbolnumber < 0) {
+  if (Jim_GetIntFromObj(interp, objv[symbol_ix], &symbolnumber) != TCL_OK || symbolnumber < 0) {
     return TCL_ERROR;
   }
 
@@ -3737,18 +3737,18 @@ static int tcl_ffidl_stubsymbol(ClientData clientData, Tcl_Interp *interp, int o
   }
 
   if (!stubs) {
-    Tcl_AppendResult(interp, "no stubs table \"", Tcl_GetString(objv[stubstable_ix]),
-        "\" in library \"", Tcl_GetString(objv[library_ix]), "\"", NULL);
+    Jim_AppendResult(interp, "no stubs table \"", Jim_GetString(objv[stubstable_ix]),
+        "\" in library \"", Jim_GetString(objv[library_ix]), "\"", NULL);
     return TCL_ERROR;
   }
   address = *(stubs + 2 + symbolnumber);
   if (!address) {
-    Tcl_AppendResult(interp, "couldn't find symbol number ", Tcl_GetString(objv[symbol_ix]),
-        " in stubs table \"", Tcl_GetString(objv[stubstable_ix]), "\"", NULL);
+    Jim_AppendResult(interp, "couldn't find symbol number ", Jim_GetString(objv[symbol_ix]),
+        " in stubs table \"", Jim_GetString(objv[stubstable_ix]), "\"", NULL);
     return TCL_ERROR;
   }
 
-  Tcl_SetObjResult(interp, Ffidl_NewPointerObj(address));
+  Jim_SetObjResult(interp, Ffidl_NewPointerObj(address));
   return TCL_OK;
 }
 
@@ -3774,13 +3774,13 @@ int Ffidl_Init(Tcl_Interp *interp)
 {
   ffidl_client *client;
 
-  if (Tcl_InitStubs(interp, "8.4", 0) == NULL) {
+  if (Jim_InitStubs(interp, "8.4", 0) == NULL) {
     return TCL_ERROR;
   }
-  if (Tcl_PkgRequire(interp, "Tcl", "8.4", 0) == NULL) {
+  if (Jim_PkgRequire(interp, "Tcl", "8.4", 0) == NULL) {
       return TCL_ERROR;
   }
-  if (Tcl_PkgProvide(interp, "Ffidl", PACKAGE_VERSION) != TCL_OK) {
+  if (Jim_PkgProvide(interp, "Ffidl", PACKAGE_VERSION) != TCL_OK) {
     return TCL_ERROR;
   }
 
@@ -3788,23 +3788,23 @@ int Ffidl_Init(Tcl_Interp *interp)
   client = client_alloc(interp);
 
   /* initialize commands */
-  Tcl_CreateObjCommand(interp,"::ffidl::info", tcl_ffidl_info, (ClientData) client, NULL);
-  Tcl_CreateObjCommand(interp,"::ffidl::typedef", tcl_ffidl_typedef, (ClientData) client, NULL);
-  Tcl_CreateObjCommand(interp,"::ffidl::library", tcl_ffidl_library, (ClientData) client, NULL);
-  Tcl_CreateObjCommand(interp,"::ffidl::symbol", tcl_ffidl_symbol, (ClientData) client, NULL);
-  Tcl_CreateObjCommand(interp,"::ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL);
-  Tcl_CreateObjCommand(interp,"::ffidl::callout", tcl_ffidl_callout, (ClientData) client, NULL);
+  Jim_CreateObjCommand(interp,"::ffidl::info", tcl_ffidl_info, (ClientData) client, NULL);
+  Jim_CreateObjCommand(interp,"::ffidl::typedef", tcl_ffidl_typedef, (ClientData) client, NULL);
+  Jim_CreateObjCommand(interp,"::ffidl::library", tcl_ffidl_library, (ClientData) client, NULL);
+  Jim_CreateObjCommand(interp,"::ffidl::symbol", tcl_ffidl_symbol, (ClientData) client, NULL);
+  Jim_CreateObjCommand(interp,"::ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL);
+  Jim_CreateObjCommand(interp,"::ffidl::callout", tcl_ffidl_callout, (ClientData) client, NULL);
 #if USE_CALLBACKS
-  Tcl_CreateObjCommand(interp,"::ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
+  Jim_CreateObjCommand(interp,"::ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
 #endif
 
   /* determine Tcl_ObjType * for some types */
-  ffidl_bytearray_ObjType = Tcl_GetObjType("bytearray");
-  ffidl_int_ObjType = Tcl_GetObjType("int");
+  ffidl_bytearray_ObjType = Jim_GetObjType("bytearray");
+  ffidl_int_ObjType = Jim_GetObjType("int");
 #if HAVE_WIDE_INT
-  ffidl_wideInt_ObjType = Tcl_GetObjType("wideInt");
+  ffidl_wideInt_ObjType = Jim_GetObjType("wideInt");
 #endif
-  ffidl_double_ObjType = Tcl_GetObjType("double");
+  ffidl_double_ObjType = Jim_GetObjType("double");
 
   /* done */
   return TCL_OK;
@@ -3832,14 +3832,14 @@ MyTkInitStubs(interp, version, exact)
 {
     const char *actualVersion;
 
-    actualVersion = Tcl_PkgRequireEx(interp, "Tk", version, exact,
+    actualVersion = Jim_PkgRequireEx(interp, "Tk", version, exact,
 		(ClientData *) &tkStubsPtr);
     if (!actualVersion) {
 	return NULL;
     }
 
     if (!tkStubsPtr) {
-	Tcl_SetResult(interp,
+	Jim_SetResult(interp,
 		"This implementation of Tk does not support stubs",
 		TCL_STATIC);
 	return NULL;
@@ -3857,3 +3857,4 @@ MyTkInitStubs(interp, version, exact)
 /* Local Variables: */
 /* c-basic-offset: 2 */
 /* End: */
+
