@@ -1,6 +1,10 @@
 /* ffidlConfig.h.  Generated from ffidlConfig.h.in by configure.  */
 /* ffidlConfig.h.in.  Generated from configure.ac by autoheader.  */
 
+#define  EXTERN  extern
+
+#define  Jim_NewLongObj  Jim_NewIntObj
+
 /* Define if building universal (internal helper macro) */
 /* #undef AC_APPLE_UNIVERSAL_BUILD */
 
@@ -219,22 +223,22 @@
 #define USE_LIBFFI 1
 
 /* Use TclOO stubs */
-#define USE_TCLOO_STUBS 1
+#define USE_TCLOO_STUBS 0
 
 /* Use Tcl*Dlopen() API to load code */
-/* #undef USE_TCL_DLOPEN */
+#undef USE_TCL_DLOPEN
 
 /* Use Tcl_LoadFile() API to load code */
-#define USE_TCL_LOADFILE 1
+#undef USE_TCL_LOADFILE
 
 /* Use Tcl stubs */
-#define USE_TCL_STUBS 1
+#undef USE_TCL_STUBS
 
 /* Do we want to use the threaded memory allocator? */
-#define USE_THREAD_ALLOC 1
+#undef USE_THREAD_ALLOC
 
 /* Use Tk stubs */
-/* #undef USE_TK_STUBS */
+#undef USE_TK_STUBS
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
