@@ -3,6 +3,7 @@
 
 #define  EXTERN  extern
 
+/* this line is new for the Jim port of Ffidl.  risky.  revisit.  */
 #define  Jim_NewLongObj  Jim_NewIntObj
 
 /* Define if building universal (internal helper macro) */
