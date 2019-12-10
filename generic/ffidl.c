@@ -2107,7 +2107,7 @@ static void callback_define(ffidl_client *client, char *cname, ffidl_callback *c
   entry_define(&client->callbacks,cname,(void*)callback);
 }
 /* lookup an existing callback */
-static ffidl_callback *callback_lookup(ffidl_client *client, char *cname)
+static ffidl_callback *callback_lookup(ffidl_client *client, const char *cname)
 {
   return entry_lookup(&client->callbacks,cname);
 }
@@ -3185,7 +3185,8 @@ static int tcl_ffidl_call(ClientData clientData, Jim_Interp *interp, int objc, J
 	AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
-      callout->args[i] = (void *)Jim_GetByteArrayFromObj(obj, &itmp);
+      callout->args[i] = obj->bytes;
+      itmp = obj->length;
       if (itmp != cif->atypes[i]->size) {
 	sprintf(buff, "parameter %d is the wrong size, %u bytes instead of %lu.", i, itmp, (long)(cif->atypes[i]->size));
 	AppendResult(interp, buff, NULL);
@@ -3205,19 +3206,22 @@ static int tcl_ffidl_call(ClientData clientData, Jim_Interp *interp, int objc, J
     case FFIDL_PTR_UTF8:
       *(void **)callout->args[i] = (void *)Jim_GetString(obj, NULL);
       continue;
+/* UTF16 not supported yet in the Jim port.  revisit.
+    this will involve calls to libiconv and/or Jim's utf8_tounicode().  
+    this would be used by Win32 and Java.
     case FFIDL_PTR_UTF16:
       *(void **)callout->args[i] = (void *)Jim_GetUnicode(obj);
-      continue;
+      continue;  */
     case FFIDL_PTR_BYTE:
       if (obj->typePtr != ffidl_bytearray_ObjType) {
 	sprintf(buff, "parameter %d must be a binary string", i);
 	AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
-      *(void **)callout->args[i] = (void *)Jim_GetByteArrayFromObj(obj, &itmp);
+      *(void **)callout->args[i] = (void *)obj->bytes;
       continue;
     case FFIDL_PTR_VAR:
-      obj = Jim_ObjGetVar2(interp, objv[args_ix+i], NULL, TCL_LEAVE_ERR_MSG);
+      obj = Jim_GetVariable(interp, objv[args_ix + i], JIM_ERRMSG);
       if (obj == NULL) return JIM_ERR;
       if (obj->typePtr != ffidl_bytearray_ObjType) {
 	sprintf(buff, "parameter %d must be a binary string", i);
@@ -3225,12 +3229,12 @@ static int tcl_ffidl_call(ClientData clientData, Jim_Interp *interp, int objc, J
 	goto cleanup;
       }
       if (Jim_IsShared(obj)) {
-	obj = Jim_ObjSetVar2(interp, objv[args_ix+i], NULL, Jim_DuplicateObj(obj), TCL_LEAVE_ERR_MSG);
-	if (obj == NULL) {
+	itmp = Jim_SetVariable(interp, objv[args_ix+i], Jim_DuplicateObj(interp, obj));
+	if (itmp != JIM_OK) {
 	  goto cleanup;
 	}
       }
-      *(void **)callout->args[i] = (void *)Jim_GetByteArrayFromObj(obj, &itmp);
+      *(void **)callout->args[i] = (void *)obj->bytes;
       /* printf("pointer-var -> %d\n", cif->avalues[i].v_pointer); */
       Jim_InvalidateStringRep(obj);
       continue;
@@ -3239,13 +3243,15 @@ static int tcl_ffidl_call(ClientData clientData, Jim_Interp *interp, int objc, J
       ffidl_callback *callback;
       ffidl_closure *closure;
       Jim_DString ds;
-      char *name = Jim_GetString(objv[args_ix+i], NULL);
+      const char *name = Jim_GetString(objv[args_ix+i], NULL);
       Jim_DStringInit(&ds);
       if (!strstr(name, "::")) {
-        Jim_Namespace *ns;
-        ns = Jim_GetCurrentNamespace(interp);
-        if (ns != Jim_GetGlobalNamespace(interp)) {
-          Jim_DStringAppend(&ds, ns->fullName, -1);
+        /* 'name' is relative.  resolve it to an absolute namespace instead. */
+        Jim_Obj *ns;
+        ns = interp->framePtr->nsObj;
+        if (ns != interp->topFramePtr->nsObj) {
+          /* interp's current namespace is not its global one.  prepend that namespace. */
+          Jim_DStringAppend(&ds, Jim_GetString(ns, NULL), -1);
         }
         Jim_DStringAppend(&ds, "::", 2);
         Jim_DStringAppend(&ds, name, -1);
