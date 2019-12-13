@@ -1,4 +1,4 @@
-/* contents of this file are borrowed from Tcl source code.
+/* much of the contents of this file are borrowed from Tcl source code.
 before distribution this must be replaced with new original
 Jim code for licensing reasons.  or else migrate to some 
 other dynamic string library.  */

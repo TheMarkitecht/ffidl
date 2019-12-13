@@ -2643,9 +2643,9 @@ static const Jim_HashTableType StringToPointerHashTableType = {
 };
  
 /* client interp deletion callback for cleanup */
-static void client_delete(ClientData clientData, Jim_Interp *interp)
+static void client_delete(Jim_Interp *interp)
 {
-  ffidl_client *client = (ffidl_client *)clientData;
+  ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
 
   Jim_HashEntry *entry;
   Jim_HashTableIterator * i;
@@ -2781,7 +2781,7 @@ static ffidl_client *client_alloc(Jim_Interp *interp)
  */
 
 /* usage: ::ffidl::info option ?...? */
-static int tcl_ffidl_info(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
+static int tcl_ffidl_info(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -2795,7 +2795,7 @@ static int tcl_ffidl_info(ClientData clientData, Jim_Interp *interp, int objc, J
   Jim_HashEntry *entry;
   Jim_HashTableIterator *iter;
   ffidl_type *type;
-  ffidl_client *client = (ffidl_client *)clientData;
+  ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
   static const char *options[] = {
 #define INFO_ALIGNOF 0
     "alignof",
@@ -2976,7 +2976,7 @@ static int tcl_ffidl_info(ClientData clientData, Jim_Interp *interp, int objc, J
 }
 
 /* usage: ffidl-typedef name type1 ?type2 ...? */
-static int tcl_ffidl_typedef(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
+static int tcl_ffidl_typedef(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -2988,7 +2988,7 @@ static int tcl_ffidl_typedef(ClientData clientData, Jim_Interp *interp, int objc
   const char *tname1, *tname2;
   ffidl_type *newtype, *ttype2;
   int nelts, i;
-  ffidl_client *client = (ffidl_client *)clientData;
+  ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
 
   /* check number of args */
   if (objc < minargs) {
@@ -3327,7 +3327,7 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 }
 
 /* usage: ffidl-callout name {?argument_type ...?} return_type address ?protocol? */
-static int tcl_ffidl_callout(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
+static int tcl_ffidl_callout(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3348,7 +3348,7 @@ static int tcl_ffidl_callout(ClientData clientData, Jim_Interp *interp, int objc
   int res;
   ffidl_cif *cif = NULL;
   ffidl_callout *callout;
-  ffidl_client *client = (ffidl_client *)clientData;
+  ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
   int has_protocol = objc - 1 >= protocol_ix;
 
   /* usage check */
@@ -3452,7 +3452,7 @@ error:
 
 #if USE_CALLBACKS
 /* usage: ffidl-callback name {?argument_type ...?} return_type ?protocol? ?cmdprefix? -> */
-static int tcl_ffidl_callback(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
+static int tcl_ffidl_callback(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3472,7 +3472,7 @@ static int tcl_ffidl_callback(ClientData clientData, Jim_Interp *interp, int obj
   int cmdc;
   Jim_DString ds;
   ffidl_callback *callback = NULL;
-  ffidl_client *client = (ffidl_client *)clientData;
+  ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
   ffidl_closure *closure = NULL;
   void (*fn)();
   int has_protocol = objc - 1 >= protocol_ix;
@@ -3630,7 +3630,7 @@ error:
 #endif
 
 /* usage: ffidl::library library ?options...?*/
-static int tcl_ffidl_library(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
+static int tcl_ffidl_library(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3679,7 +3679,7 @@ static int tcl_ffidl_library(ClientData clientData, Jim_Interp *interp, int objc
   const char *libraryName;
   ffidl_LoadHandle handle;
   ffidl_UnloadProc unload;
-  ffidl_client *client = (ffidl_client *)clientData;
+  ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
 
   if (objc < minargs) {
     Jim_WrongNumArgs(interp, 1, objv, "?flags? ?--? library");
@@ -3768,7 +3768,7 @@ static int tcl_ffidl_library(ClientData clientData, Jim_Interp *interp, int objc
 }
 
 /* usage: ffidl-symbol library symbol -> address */
-static int tcl_ffidl_symbol(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
+static int tcl_ffidl_symbol(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3781,7 +3781,7 @@ static int tcl_ffidl_symbol(ClientData clientData, Jim_Interp *interp, int objc,
   void *address;
   ffidl_LoadHandle handle;
   ffidl_UnloadProc unload;
-  ffidl_client *client = (ffidl_client *)clientData;
+  ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
 
   if (objc != nargs) {
     Jim_WrongNumArgs(interp,1,objv,"library symbol");
@@ -3808,7 +3808,7 @@ static int tcl_ffidl_symbol(ClientData clientData, Jim_Interp *interp, int objc,
 }
 
 /* usage: ffidl-stubsymbol library stubstable symbolnumber -> address */
-static int tcl_ffidl_stubsymbol(ClientData clientData, Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
+static int tcl_ffidl_stubsymbol(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
     command_ix,
@@ -3866,6 +3866,7 @@ static int tcl_ffidl_stubsymbol(ClientData clientData, Jim_Interp *interp, int o
     }
   }
 #endif
+  /* not yet supported in the Jim port. 
   switch (stubstable) {
     case STUBS:
       stubs = (void**)(library == LIB_TCL ? tclStubsPtr : tkStubsPtr); break;
@@ -3877,7 +3878,8 @@ static int tcl_ffidl_stubsymbol(ClientData clientData, Jim_Interp *interp, int o
       stubs = (void**)(library == LIB_TCL ? tclIntPlatStubsPtr : tkIntPlatStubsPtr); break;
     case INTXLIBSTUBS:
       stubs = (void**)(library == LIB_TCL ? NULL : tkIntXlibStubsPtr); break;
-  }
+  } */
+  stubs = NULL;
 
   if (!stubs) {
     AppendResult(interp, "no stubs table \"", Jim_GetString(objv[stubstable_ix], NULL),
@@ -3917,13 +3919,14 @@ int Ffidl_Init(Jim_Interp *interp)
 {
   ffidl_client *client;
 
+  /* not yet supported in the Jim port. 
   if (Jim_InitStubs(interp, "8.4", 0) == NULL) {
     return JIM_ERR;
   }
   if (Jim_PkgRequire(interp, "Tcl", "8.4", 0) == NULL) {
       return JIM_ERR;
-  }
-  if (Jim_PkgProvide(interp, "Ffidl", PACKAGE_VERSION) != JIM_OK) {
+  } */
+  if (Jim_PackageProvide(interp, "Ffidl", PACKAGE_VERSION, 0) != JIM_OK) {
     return JIM_ERR;
   }
 
@@ -3931,14 +3934,14 @@ int Ffidl_Init(Jim_Interp *interp)
   client = client_alloc(interp);
 
   /* initialize commands */
-  Jim_CreateObjCommand(interp,"::ffidl::info", tcl_ffidl_info, (ClientData) client, NULL);
-  Jim_CreateObjCommand(interp,"::ffidl::typedef", tcl_ffidl_typedef, (ClientData) client, NULL);
-  Jim_CreateObjCommand(interp,"::ffidl::library", tcl_ffidl_library, (ClientData) client, NULL);
-  Jim_CreateObjCommand(interp,"::ffidl::symbol", tcl_ffidl_symbol, (ClientData) client, NULL);
-  Jim_CreateObjCommand(interp,"::ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL);
-  Jim_CreateObjCommand(interp,"::ffidl::callout", tcl_ffidl_callout, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"::ffidl::info", tcl_ffidl_info, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"::ffidl::typedef", tcl_ffidl_typedef, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"::ffidl::library", tcl_ffidl_library, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"::ffidl::symbol", tcl_ffidl_symbol, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"::ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"::ffidl::callout", tcl_ffidl_callout, (ClientData) client, NULL);
 #if USE_CALLBACKS
-  Jim_CreateObjCommand(interp,"::ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"::ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
 #endif
 
   /* determine Jim_ObjType * for some types */
