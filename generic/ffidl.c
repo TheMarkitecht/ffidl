@@ -81,9 +81,8 @@
 /* these parts borrowed from Jim source.  this is done mainly to avoid modifying
 the Jim interp at all right now.  in future they should be factored out from there
 so they don't have to be duplicated here.  revisit.  */
-typedef void *ClientData;
-extern int SetListFromAny(Jim_Interp *interp, struct Jim_Obj *objPtr);
-extern void JimPanicDump(int fail_condition, const char *fmt, ...);
+/* since then, Jim's source is modified and some of these were removed from here. */
+typedef void *ClientData; /* replace everywhere wtih Jim_ClientData instead? */
 typedef struct Jim_EventLoop
 {
     void *reserved1;
@@ -92,10 +91,6 @@ typedef struct Jim_EventLoop
     time_t timeBase;
     int suppress_bgerror; /* bgerror returned break, so don't call it again */
 } Jim_EventLoop;
-extern unsigned int JimStringCopyHTHashFunction(const void *key);
-extern void *JimStringCopyHTDup(void *privdata, const void *key);
-extern int JimStringCopyHTKeyCompare(void *privdata, const void *key1, const void *key2);
-extern void JimStringCopyHTKeyDestructor(void *privdata, void *key);
 /* */
 
 #if defined(LOOKUP_TK_STUBS)
@@ -439,7 +434,8 @@ typedef struct ffidl_load_flags ffidl_load_flags;
  */
 
 EXTERN void *ffidl_pointer_pun (void *p);
-EXTERN int   Ffidl_Init (Jim_Interp * interp);
+/* this function's name is based on the library's actual filename.  Jim requires that. */
+EXTERN int   Jim_FfidlJimInit (Jim_Interp * interp);
 
 /*****************************************
  *
@@ -989,7 +985,7 @@ static ffidl_type ffidl_type_uint64 = init_type(8, FFIDL_UINT64, FFIDL_ALL|FFIDL
 static ffidl_type ffidl_type_pointer       = init_type(SIZEOF_VOID_P, FFIDL_PTR,       FFIDL_ALL|FFIDL_GETPOINTER,           ALIGNOF_VOID_P, lib_type_pointer);
 static ffidl_type ffidl_type_pointer_obj   = init_type(SIZEOF_VOID_P, FFIDL_PTR_OBJ,   FFIDL_ARGRET|FFIDL_CBARG|FFIDL_CBRET, ALIGNOF_VOID_P, lib_type_pointer);
 static ffidl_type ffidl_type_pointer_utf8  = init_type(SIZEOF_VOID_P, FFIDL_PTR_UTF8,  FFIDL_ARGRET|FFIDL_CBARG,             ALIGNOF_VOID_P, lib_type_pointer);
-static ffidl_type ffidl_type_pointer_utf16 = init_type(SIZEOF_VOID_P, FFIDL_PTR_UTF16, FFIDL_ARGRET|FFIDL_CBARG,             ALIGNOF_VOID_P, lib_type_pointer);
+//static ffidl_type ffidl_type_pointer_utf16 = init_type(SIZEOF_VOID_P, FFIDL_PTR_UTF16, FFIDL_ARGRET|FFIDL_CBARG,             ALIGNOF_VOID_P, lib_type_pointer);
 static ffidl_type ffidl_type_pointer_byte  = init_type(SIZEOF_VOID_P, FFIDL_PTR_BYTE,  FFIDL_ARG,                            ALIGNOF_VOID_P, lib_type_pointer);
 static ffidl_type ffidl_type_pointer_var   = init_type(SIZEOF_VOID_P, FFIDL_PTR_VAR,   FFIDL_ARG,                            ALIGNOF_VOID_P, lib_type_pointer);
 #if USE_CALLBACKS
@@ -2178,10 +2174,12 @@ static void callback_callback(ffi_cif *fficif, void *ret, void **args, void *use
 #if HAVE_INT64
   Ffidl_Int64 wtmp;
 #endif
+#ifdef JIM_DEBUG_PANIC
   /* test for valid scope */
   if (interp == NULL) {
     JimPanicDump(1, "callback called out of scope!\n");
   }
+#endif
   /* initialize argument list */
   objv = callback->cmdv+callback->cmdc;
   /* fetch and convert argument values */
@@ -2409,10 +2407,12 @@ static void callback_callback(void *user_data, va_alist alist)
 #if HAVE_INT64
   Ffidl_Int64 wtmp;
 #endif
+#ifdef JIM_DEBUG_PANIC
   /* test for valid scope */
   if (interp == NULL) {
     JimPanicDump(1, "callback called out of scope!\n");
   }
+#endif
   /* initialize argument list */
   objv = callback->cmdv+callback->cmdc;
   /* start */
@@ -3903,20 +3903,8 @@ static int tcl_ffidl_stubsymbol(Jim_Interp *interp, int objc, Jim_Obj *CONST obj
  */
 void *ffidl_pointer_pun(void *p) { return p; }
 
-/*
- *--------------------------------------------------------------
- *
- * Ffidl_Init
- *
- * Results:
- *	None
- *
- * Side effects:
- *	None
- *
- *--------------------------------------------------------------
- */
-int Ffidl_Init(Jim_Interp *interp)
+/* this function's name is based on the library's actual filename.  Jim requires that. */
+int Jim_FfidlJimInit(Jim_Interp *interp)
 {
   ffidl_client *client;
 

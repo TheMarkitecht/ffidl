@@ -60,8 +60,9 @@ PKG_HEADERS	=
 # configuration options) composed of the named objects.
 #========================================================================
 
-PKG_LIB_FILE	= libFfidl0.8b0.so
-PKG_STUB_LIB_FILE = libFfidlstub0.8b0.a
+# Jim requires the first part of this filename to be part of the name of the library's init function.
+PKG_LIB_FILE	= FfidlJim.0.8b0.so
+PKG_STUB_LIB_FILE = FfidlJimstub.0.8b0.a
 
 lib_BINARIES	= $(PKG_LIB_FILE)
 BINARIES	= $(lib_BINARIES)
