@@ -7,8 +7,9 @@
  *	2nd long long in callback gets trashed
  */
 
-#include <tcl.h>
+#include <jim.h>
 #include <stdint.h>		/* uintptr_t */
+#include <ffidlConfig.h>
 
 #ifdef __WIN32__
 #undef TCL_STORAGE_CLASS

@@ -78,7 +78,8 @@
 
 #include <jim.h>
 
-/* these parts borrowed from Jim source.  in future they should be factored out from there
+/* these parts borrowed from Jim source.  this is done mainly to avoid modifying
+the Jim interp at all right now.  in future they should be factored out from there
 so they don't have to be duplicated here.  revisit.  */
 typedef void *ClientData;
 extern int SetListFromAny(Jim_Interp *interp, struct Jim_Obj *objPtr);
@@ -3945,12 +3946,20 @@ int Ffidl_Init(Jim_Interp *interp)
 #endif
 
   /* determine Jim_ObjType * for some types */
-  ffidl_bytearray_ObjType = Jim_GetObjType("bytearray");
-  ffidl_int_ObjType = Jim_GetObjType("int");
+  Jim_Obj * temp;
+  temp = Jim_NewStringObj(interp, "", 0);
+  ffidl_bytearray_ObjType = temp->typePtr;
+  Jim_FreeObj(interp, temp);
+  temp = Jim_NewIntObj(interp, 0);
+  ffidl_int_ObjType = temp->typePtr;
+  Jim_FreeObj(interp, temp);
 #if HAVE_WIDE_INT
-  ffidl_wideInt_ObjType = Jim_GetObjType("wideInt");
+  /* not supported by Jim.
+  ffidl_wideInt_ObjType = Jim_GetObjType("wideInt"); */
 #endif
-  ffidl_double_ObjType = Jim_GetObjType("double");
+  temp = Jim_NewDoubleObj(interp, 0.0);
+  ffidl_double_ObjType = temp->typePtr;
+  Jim_FreeObj(interp, temp);
 
   /* done */
   return JIM_OK;

@@ -98,7 +98,7 @@ PACKAGE_VERSION	= 0.8b0
 CC		= gcc
 CFLAGS_DEFAULT	= -O2 -fomit-frame-pointer -DNDEBUG
 CFLAGS_WARNING	= -Wall
-CLEANFILES	= pkgIndex.tcl
+CLEANFILES	= 
 EXEEXT		= 
 LDFLAGS_DEFAULT	=  -Wl,--export-dynamic 
 MAKE_LIB	= ${SHLIB_LD} -o $@ $(PKG_OBJECTS) ${SHLIB_LD_LIBS} 
@@ -110,7 +110,7 @@ RANLIB		= :
 RANLIB_STUB	= ranlib
 SHLIB_CFLAGS	= -fPIC
 SHLIB_LD	= ${CC} ${CFLAGS} ${LDFLAGS_DEFAULT} -shared
-SHLIB_LD_LIBS	=  /usr/lib/x86_64-linux-gnu/libffi.a ${LIBS} -L/home/x/temp/tcl/tcl8.6.10/unix -ltclstub8.6
+SHLIB_LD_LIBS	=  /usr/lib/x86_64-linux-gnu/libffi.a ${LIBS} -L/home/x/temp/tcl/tcl8.6.10/unix 
 STLIB_LD	= ${AR} cr
 TCL_DEFS	= -DPACKAGE_NAME=\"tcl\" -DPACKAGE_TARNAME=\"tcl\" -DPACKAGE_VERSION=\"8.6\" -DPACKAGE_STRING=\"tcl\ 8.6\" -DPACKAGE_BUGREPORT=\"\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DUSE_THREAD_ALLOC=1 -D_REENTRANT=1 -D_THREAD_SAFE=1 -DHAVE_PTHREAD_ATTR_SETSTACKSIZE=1 -DHAVE_PTHREAD_ATFORK=1 -DTCL_THREADS=1 -DTCL_CFGVAL_ENCODING=\"iso8859-1\" -DHAVE_ZLIB=1 -DMODULE_SCOPE=extern\ __attribute__\(\(__visibility__\(\"hidden\"\)\)\) -DHAVE_HIDDEN=1 -DHAVE_CAST_TO_UNION=1 -DTCL_SHLIB_EXT=\".so\" -DTCL_TOMMATH=1 -DMP_PREC=4 -D_LARGEFILE64_SOURCE=1 -DTCL_WIDE_INT_IS_LONG=1 -DHAVE_GETCWD=1 -DHAVE_MKSTEMP=1 -DHAVE_OPENDIR=1 -DHAVE_STRTOL=1 -DHAVE_WAITPID=1 -DHAVE_GETNAMEINFO=1 -DHAVE_GETADDRINFO=1 -DHAVE_FREEADDRINFO=1 -DHAVE_GAI_STRERROR=1 -DHAVE_STRUCT_ADDRINFO=1 -DHAVE_STRUCT_IN6_ADDR=1 -DHAVE_STRUCT_SOCKADDR_IN6=1 -DHAVE_STRUCT_SOCKADDR_STORAGE=1 -DHAVE_GETPWUID_R_5=1 -DHAVE_GETPWUID_R=1 -DHAVE_GETPWNAM_R_5=1 -DHAVE_GETPWNAM_R=1 -DHAVE_GETGRGID_R_5=1 -DHAVE_GETGRGID_R=1 -DHAVE_GETGRNAM_R_5=1 -DHAVE_GETGRNAM_R=1 -DHAVE_DECL_GETHOSTBYNAME_R=1 -DHAVE_GETHOSTBYNAME_R_6=1 -DHAVE_GETHOSTBYNAME_R=1 -DHAVE_DECL_GETHOSTBYADDR_R=1 -DHAVE_GETHOSTBYADDR_R_8=1 -DHAVE_GETHOSTBYADDR_R=1 -DHAVE_TERMIOS_H=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_GMTIME_R=1 -DHAVE_LOCALTIME_R=1 -DHAVE_MKTIME=1 -DHAVE_TM_GMTOFF=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_STRUCT_STAT_ST_BLOCKS=1 -DHAVE_STRUCT_STAT_ST_BLKSIZE=1 -DHAVE_BLKCNT_T=1 -DHAVE_INTPTR_T=1 -DHAVE_UINTPTR_T=1 -DNO_UNION_WAIT=1 -DHAVE_SIGNED_CHAR=1 -DHAVE_LANGINFO=1 -DHAVE_MKSTEMPS=1 -DHAVE_FTS=1 -DHAVE_SYS_IOCTL_H=1 -DTCL_UNLOAD_DLLS=1 -DHAVE_CPUID=1 
 TCL_BIN_DIR	= /home/x/temp/tcl/tcl8.6.10/unix
@@ -178,7 +178,7 @@ all: binaries libraries
 # of the Makefile, in the "BINARIES" variable.
 #========================================================================
 
-binaries: $(BINARIES) pkgIndex.tcl
+binaries: $(BINARIES) 
 
 libraries:
 
@@ -283,26 +283,6 @@ VPATH = $(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(TCL_SRC_DIR)/unix
 	$(COMPILE) -c `echo $<` -o $@
 
 #========================================================================
-# Create the pkgIndex.tcl file.
-# It is usually easiest to let Tcl do this for you with pkg_mkIndex, but
-# you may find that you need to customize the package.  If so, either
-# modify the -hand version, or create a pkgIndex.tcl.in file and have
-# the configure script output the pkgIndex.tcl by editing configure.in.
-#========================================================================
-
-pkgIndex.tcl: $(PKG_LIB_FILE)
-	@cd $(srcdir) && cp -p $(PKG_TCL_SOURCES) $(CURDIR)
-	( echo pkg_mkIndex . $(PKG_LIB_FILE) \
-	    [foreach f [list $(PKG_TCL_SOURCES)] \
-	    {lappend l [file tail \$$f]}\; set l]\; exit; ) | $(TCLSH)
-	@for f in $(PKG_TCL_SOURCES); do rm -f `basename "$$f"`; done
-
-pkgIndex.tcl-hand:
-	(echo 'package ifneeded $(PACKAGE_NAME) $(PACKAGE_VERSION) \
-	    [list load [file join $$dir $(PKG_LIB_FILE)]]'\
-	) > pkgIndex.tcl
-
-#========================================================================
 # Distribution creation
 # You may need to tweak this target to make it work correctly.
 #========================================================================
@@ -370,7 +350,6 @@ distclean: clean
 # .lib files.  Because the .lib files are not explicitly listed anywhere,
 # we need to deduce their existence from the .dll file of the same name.
 # Library files go into the lib directory.
-# In addition, this will generate the pkgIndex.tcl
 # file in the install location (assuming it can find a usable tclsh shell)
 #
 # You should not have to modify this target.
@@ -407,10 +386,6 @@ install-lib-binaries: binaries
 	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(pkglibdir)/$$destp; \
 	  fi; \
 	done
-	@if test "x$(SHARED_BUILD)" = "x1"; then \
-	    echo " Install pkgIndex.tcl $(DESTDIR)$(pkglibdir)"; \
-	    $(INSTALL_DATA) pkgIndex.tcl $(DESTDIR)$(pkglibdir); \
-	fi
 
 #========================================================================
 # Install binary executables (e.g. .exe files and dependent .dll files)

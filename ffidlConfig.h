@@ -119,7 +119,7 @@
 /* #undef HAVE_WINNT_IGNORE_VOID */
 
 /* ffidl::stubsymbol can lookup in Tk stubs tables */
-#define LOOKUP_TK_STUBS 1
+#undef LOOKUP_TK_STUBS
 
 /* No Compiler support for module scope symbols */
 #define MODULE_SCOPE extern __attribute__((__visibility__("hidden")))
