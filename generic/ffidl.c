@@ -1138,7 +1138,7 @@ static int ffidlopen(Jim_Interp *interp,
   }
   *unload = NULL;
 #else
-  Jim_DString ds;
+  /* Jim_DString ds; */
   const char *libraryName = NULL;
   const char *nativeLibraryName = NULL;
   char *error = NULL;
@@ -1181,7 +1181,7 @@ static int ffidlopen(Jim_Interp *interp,
     *unload = NULL;
   }
 
-  Jim_DStringFree(&ds);
+/*  Jim_DStringFree(&ds); */
 #endif
 
   return status;
