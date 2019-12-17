@@ -1001,6 +1001,10 @@ void AppendResult(Jim_Interp *interp, ...)
 {
     /* implementation similar to Jim_AppendStrings() */
 
+    if (Jim_IsShared(interp->result)) {
+        Jim_SetResult(interp, Jim_DuplicateObj(interp, interp->result));
+    }
+
     va_list ap;
     va_start(ap, interp);
     while (1) {
@@ -3923,14 +3927,14 @@ int Jim_FfidlJimInit(Jim_Interp *interp)
   client = client_alloc(interp);
 
   /* initialize commands */
-  Jim_CreateCommand(interp,"::ffidl::info", tcl_ffidl_info, (ClientData) client, NULL);
-  Jim_CreateCommand(interp,"::ffidl::typedef", tcl_ffidl_typedef, (ClientData) client, NULL);
-  Jim_CreateCommand(interp,"::ffidl::library", tcl_ffidl_library, (ClientData) client, NULL);
-  Jim_CreateCommand(interp,"::ffidl::symbol", tcl_ffidl_symbol, (ClientData) client, NULL);
-  Jim_CreateCommand(interp,"::ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL);
-  Jim_CreateCommand(interp,"::ffidl::callout", tcl_ffidl_callout, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"ffidl::info", tcl_ffidl_info, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"ffidl::typedef", tcl_ffidl_typedef, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"ffidl::library", tcl_ffidl_library, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"ffidl::symbol", tcl_ffidl_symbol, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"ffidl::callout", tcl_ffidl_callout, (ClientData) client, NULL);
 #if USE_CALLBACKS
-  Jim_CreateCommand(interp,"::ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
+  Jim_CreateCommand(interp,"ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
 #endif
 
   /* determine Jim_ObjType * for some types */

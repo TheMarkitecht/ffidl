@@ -1,9 +1,8 @@
 #
 # atol for long return check
 #
-package provide Atol 0.1
-package require Ffidl
-package require Ffidlrt
+load ../FfidlJim.0.8b0.so
+source ../ffidlrt.tcl
 
 #
 # the plain interfaces
@@ -27,3 +26,5 @@ proc strtoul {str radix} {
     list $l $endptr
 }
 
+puts 5=[strtol 5]
+puts 999999=[strtol 999999]

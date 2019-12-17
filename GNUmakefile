@@ -97,7 +97,7 @@ INSTALL_SCRIPT	= ${INSTALL} -m 755
 PACKAGE_NAME	= Ffidl
 PACKAGE_VERSION	= 0.8b0
 CC		= gcc
-CFLAGS_DEFAULT	= -O2 -fomit-frame-pointer -DNDEBUG
+CFLAGS_DEFAULT	= -g3
 CFLAGS_WARNING	= -Wall
 CLEANFILES	= 
 EXEEXT		= 
@@ -150,7 +150,7 @@ PKG_CFLAGS	=
 #DEFS		= $(TCL_DEFS) -DHAVE_CONFIG_H -DHAVE_FFIDL_CONFIG_H $(PKG_CFLAGS)
 DEFS		= -DHAVE_CONFIG_H -DHAVE_FFIDL_CONFIG_H $(PKG_CFLAGS)
 
-CONFIG_CLEAN_FILES = GNUmakefile ffidlConfig.h
+CONFIG_CLEAN_FILES = 
 
 CPPFLAGS	= 
 LIBS		= 
@@ -407,10 +407,6 @@ install-bin-binaries: binaries
 	done
 
 .SUFFIXES: .c .$(OBJEXT)
-
-GNUmakefile: $(srcdir)/GNUmakefile.in  $(top_builddir)/config.status
-	cd $(top_builddir) \
-	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 uninstall-binaries:
 	list='$(lib_BINARIES)'; for p in $$list; do \
