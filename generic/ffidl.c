@@ -1063,6 +1063,7 @@ static int ffidlsym(Jim_Interp *interp,
   symbolName = Jim_GetString(symbolNameObj, NULL);
   /* this line could not port to Jim: */
   /* nativeSymbolName = Jim_UtfToExternalDString(NULL, symbolName, -1, &nds); */
+  Jim_DStringInit(&nds);  
   nativeSymbolName = symbolName;
 #if defined(USE_TCL_DLOPEN)
   *address = TclpFindSymbol(interp, (Jim_LoadHandle)handle, nativeSymbolName);

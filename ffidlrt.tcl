@@ -19,203 +19,94 @@ proc ::ffidl::find-pkg-lib {pkg} {
     }
 }
 
-namespace eval ::ffidl {
-    # 'libs' array is used by the ::ffidl::find-lib
-    # abstraction to store the resolved lib paths
-    variable libs {} 
-    set ffidl_lib ./FfidlJim.0.8b0.so
-    array set libs [list ffidl $ffidl_lib ffidl_test $ffidl_lib]
-    unset ffidl_lib
-
-    # 'types' and 'typedefs' arrays are used by the ::ffidl::find-type
-    # abstraction to store resolved system types
-    # and whether they have already been defined
-    # with ::ffidl::typedef
-    variable types {} 
-    variable typedefs {}
-    array set typedefs {}
-    switch -exact $::tcl_platform(platform) {
-	unix {
-	    switch -glob $::tcl_platform(os) {
-                Darwin {
-                    array set libs {
-                        c System.framework/System
-                        m System.framework/System
-                        gdbm {}
-                        gmp {}
-                        mathswig libmathswig0.5.dylib
-                    }
-                    array set types {
-                        size_t {{unsigned long}}
-                        clock_t {{unsigned long}}
-                        time_t long
-                        timeval {uint32 uint32}
-                    }
-                }
-                Linux {
-                    if {$::tcl_platform(wordSize) == 8} {
-                        if {$::tcl_platform(machine) eq "alpha"} {
-                            array set libs {
-                                c /lib/libc.so.6.1
-                                m /lib/libm.so.6.1
-                                gdbm /usr/lib/libgdbm.so
-                                gmp {/usr/local/lib/libgmp.so /usr/lib/libgmp.so.2}
-                                mathswig libmathswig0.5.so
-                            }
-                            array set types {
-                                size_t long
-                                clock_t long
-                                time_t long
-                                timeval {time_t time_t}
-                            }                        
-                        } else {
-                            array set libs {
-                                c {
-				    /lib64/libc.so.6
-				    /lib/x86_64-linux-gnu/libc.so.6
-				}
-                                m {
-				    /lib64/libm.so.6
-				    /lib/x86_64-linux-gnu/libm.so.6
-				}
-                                gdbm {
-				    /usr/lib64/libgdbm.so
-				    /usr/lib/x86_64-linux-gnu/libgdbm.so
-				}
-                                gmp {
-				    /usr/lib/x86_64-linux-gnu/libgmp.so
-				    /usr/local/lib64/libgmp.so
-				    /usr/lib64/libgmp.so.2
-				}
-                                mathswig libmathswig0.5.so
-                            }
-                            array set types {
-                                size_t long
-                                clock_t long
-                                time_t long
-                                timeval {time_t time_t}
-                            }
-                        }
-                    } else {
-                        array set libs {
-                            c {
-                                    /lib/libc.so.6
-                                    /lib/i386-linux-gnu/libc.so.6
-                            }
-                            m {
-                                    /lib/libm.so.6
-                                    /lib/i386-linux-gnu/libm.so.6
-                            }
-                            gdbm {
-                                    /usr/lib/libgdbm.so
-                                    /usr/lib/i386-linux-gnu/libgdbm.so.3
-                            }
-                            gmp {
-                                   /usr/lib/i386-linux-gnu/libgmp.so.2
-                                   /usr/local/lib/libgmp.so
-                                   /usr/lib/libgmp.so.2
-                            }
-                            mathswig libmathswig0.5.so
-                        }
-                        array set types {
-                            size_t int
-                            clock_t long
-                            time_t long
-                            timeval {time_t time_t}
-                        }
-                    }
-                }
-                *BSD {
-                    array set libs {
-                        c {/usr/lib/libc.so /usr/lib/libc.so.30.1}
-                        m {/usr/lib/libm.so /usr/lib/libm.so.1.0}
-                        gdbm libgdbm.so
-                        gmp libgmp.so
-                        mathswig libmathswig0.5.so
-                    }
-                    array set types {
-                        size_t int
-                        clock_t long
-                        time_t long
-                        timeval {time_t time_t}
-                    }
-                }
-                default {
-                    array set libs {
-                        c /lib/libc.so
-                        m /lib/libm.so
-                        gdbm libgdbm.so
-                        gmp libgmp.so
-                        mathswig libmathswig0.5.so
-                    }
-                    array set types {
-                        size_t int
-                        clock_t long
-                        time_t long
-                        timeval {time_t time_t}
-                    }
-                }
-	    }
-	}
-	windows {
-            #
-            # found libraries
-            # this array is used by the ::ffidl::find-lib
-            # abstraction to store the resolved lib paths
-            #
-            # CHANGE - put your resolved lib paths here
-            #
-	    array set libs {
-		c msvcrt.dll
-		m msvcrt.dll
-		gdbm {}
-		gmp gmp202.dll
-		mathswig mathswig05.dll
-	    }
-            #
-            # found types
-            # these arrays are used by the ::ffidl::find-type
-            # abstraction to store resolved system types
-            # and whether they have already been defined
-            # with ::ffidl::typedef
-            #
-            # CHANGE - put your resolved system types here
-            #
-            array set types {
-                size_t int
-                clock_t long
-                time_t long
-                timeval {time_t time_t}
-            }
-            array set typedefs {
-            }
-	}
+# examine the system and return a list of its search dirs for library binaries.
+proc ::ffidl::get-lib-search-paths {} {
+    set dirs [list]
+    # -N allows non-root users to run this command:
+    set pip [open {|/sbin/ldconfig -N -v 2>/dev/null}  r]
+    # /sbin/ldconfig is accessible by name on e.g. Debian 10.
+    while { ! [eof $pip]} {
+        set ln [string trim [gets $pip]]
+        if {[string match *: $ln]} {
+            lappend dirs [string range $ln 0 end-1]
+        }
     }
-    
-    puts types=[array get types]
+    close $pip
+    return $dirs
 }
 
 #
-# find a shared library given a root name
-# this is an abstraction in search of a
-# solution.
+# search the system to find a shared library given its bare name.
+# more detail can be passed in the name to reduce the likelihood of finding an unsuitable file.
+# some examples (on a ficticious Linux system):
+#   junk
+#       resolves to:  /usr/lib/libjunk.so.3.2
+#   stuff-9
+#       resolves to:  /opt/local/lib/libstuff-9.so.3
+#   libstuff-9.so.1
+#       resolves to:  /opt/local/lib/libstuff-9.so.1
+#   /home/jim/libstuff-9
+#       resolves to:  /home/jim/libstuff-9.so.1
+#   
+# find-lib returns the absolute path to the found library, ready to load.
+# returns empty string if none found.
 #
-# currently wired for my linux box
-#
-proc ::ffidl::find-lib {root} {
+proc ::ffidl::find-lib {bareName} {
+    variable platUpr
     variable libs
-    if { ! [::info exists libs($root)] || [llength libs($root)] == 0} {
-	error "::ffidl::find-lib $root - no mapping defined for $root"
+    variable paths
+    
+    puts bareName=$bareName
+    
+    # if the given bareName contains a relative path, resolve it to absolute right away.
+    if {[llength [file split $bareName]] > 1} {
+        set bareName [file join [pwd] $bareName]
     }
-    if {[llength $libs($root)] > 1} {
-	foreach l $libs($root) {
-	    if {[file exists $l]} {
-		set libs($root) $l
-		break
-	    }
-	}
+    
+    # form a list of known (magic) and/or guessed full names for this lib.
+    # really each one is a glob pattern, to allow for unforeseen versions etc.
+    # if one includes an absolute path, that is honored.  otherwise it's tested
+    # within each dir in ::ffidl::paths.
+    set names [list]
+    if {[::info exists libs($bareName)] && [llength $libs($bareName)] > 0} {
+        lappend names {*}$libs($bareName)
     }
-    lindex $libs($root) 0
+    lappend names  lib${bareName}.so  lib${bareName}.so.*  \
+        ${bareName}.so  ${bareName}.so.*
+    puts names=$names
+    
+    # search for each full name pattern, in each of the system's search dirs.
+    foreach n $names {
+        foreach dir $::ffidl::paths {
+            # if the dir contains a relative path, resolve it to absolute right away.
+            set dir [file join [pwd] $dir]
+
+            # skip any dir that probably doesn't match the machine's word size.
+            if {$platUpr(WORDSIZE) == 8} {
+                if [string match *32* $dir] continue
+                if [string match *386* $dir] continue
+                if [string match *686* $dir] continue
+                # can't rule out x86 here since it appears in x86_64 arch.
+            } elseif {$platUpr(WORDSIZE) == 4} {
+                if [string match *64* $dir] continue
+            }
+            
+            # find all available versions in this dir that match the name pattern.
+            puts search=[file join $dir $n]
+            set versions [glob -nocomplain [file join $dir $n]]
+            if {[llength $versions]} {
+                puts "versions=\n    [join $versions "\n    "]"
+                # accept the (hopefully) latest version based on filename.
+                # this sort is not foolproof, e.g. junk.so.9 newer than junk.so.10 !
+                lassign [lsort -decreasing $versions] latest
+                if [file readable $latest] {
+                    set libs($bareName) $latest
+                    return $latest
+                }
+            }
+        }
+    }
+    return {}
 }
 
 #
@@ -240,6 +131,179 @@ puts vars=[::info vars ::*]
     }
 }
     
+namespace eval ::ffidl {
+    variable platUpr [string toupper $::tcl_platform]
+
+    # 'paths' array is used by the ::ffidl::find-lib
+    # abstraction to store the resolved lib paths
+    variable paths {}
+    set paths [::ffidl::get-lib-search-paths]
+
+    # 'libs' array is used by the ::ffidl::find-lib
+    # abstraction to store the resolved lib paths
+    variable libs {} 
+    set ffidl_lib ./FfidlJim.0.8b0.so
+    array set libs [list ffidl $ffidl_lib ffidl_test $ffidl_lib]
+    unset ffidl_lib
+
+    # 'types' and 'typedefs' arrays are used by the ::ffidl::find-type
+    # abstraction to store resolved system types
+    # and whether they have already been defined
+    # with ::ffidl::typedef
+    variable types {} 
+    variable typedefs {}
+    array set typedefs {}
+    switch -exact $platUpr(PLATFORM) {
+	UNIX {
+	    switch -glob $platUpr(OS) {
+            DARWIN {
+                # revisit.  eliminate as many magic libs here as possible.
+                array set libs {
+                    c System.framework/System
+                    m System.framework/System
+                    gdbm {}
+                    gmp {}
+                    mathswig libmathswig0.5.dylib
+                }
+                array set types {
+                    size_t {{unsigned long}}
+                    clock_t {{unsigned long}}
+                    time_t long
+                    timeval {uint32 uint32}
+                }
+            }
+            LINUX {
+                # previously Alpha machines had special magic here.
+                # but Jim doesn't offer (MACHINE) info.
+                if {$platUpr(WORDSIZE) == 8} {
+                    # Linux 64-bit.
+                    array set libs {
+                        c {
+                            libc.so.6
+                        }
+                        m {
+                            /lib64/libm.so.6
+                            /lib/x86_64-linux-gnu/libm.so.6
+                        }
+                        gdbm {
+                            /usr/lib64/libgdbm.so
+                            /usr/lib/x86_64-linux-gnu/libgdbm.so
+                        }
+                        gmp {
+                            /usr/lib/x86_64-linux-gnu/libgmp.so
+                            /usr/local/lib64/libgmp.so
+                            /usr/lib64/libgmp.so.2
+                        }
+                        mathswig libmathswig0.5.so
+                    }
+                    array set types {
+                        size_t long
+                        clock_t long
+                        time_t long
+                        timeval {time_t time_t}
+                    }
+                } else {
+                    # Linux 32-bit.
+                    array set libs {
+                        c {
+                                /lib/libc.so.6
+                                /lib/i386-linux-gnu/libc.so.6
+                        }
+                        m {
+                                /lib/libm.so.6
+                                /lib/i386-linux-gnu/libm.so.6
+                        }
+                        gdbm {
+                                /usr/lib/libgdbm.so
+                                /usr/lib/i386-linux-gnu/libgdbm.so.3
+                        }
+                        gmp {
+                               /usr/lib/i386-linux-gnu/libgmp.so.2
+                               /usr/local/lib/libgmp.so
+                               /usr/lib/libgmp.so.2
+                        }
+                        mathswig libmathswig0.5.so
+                    }
+                    array set types {
+                        size_t int
+                        clock_t long
+                        time_t long
+                        timeval {time_t time_t}
+                    }
+                }
+            }
+            *BSD {
+                array set libs {
+                    c {/usr/lib/libc.so /usr/lib/libc.so.30.1}
+                    m {/usr/lib/libm.so /usr/lib/libm.so.1.0}
+                    gdbm libgdbm.so
+                    gmp libgmp.so
+                    mathswig libmathswig0.5.so
+                }
+                array set types {
+                    size_t int
+                    clock_t long
+                    time_t long
+                    timeval {time_t time_t}
+                }
+            }
+            default {
+                array set libs {
+                    c /lib/libc.so
+                    m /lib/libm.so
+                    gdbm libgdbm.so
+                    gmp libgmp.so
+                    mathswig libmathswig0.5.so
+                }
+                array set types {
+                    size_t int
+                    clock_t long
+                    time_t long
+                    timeval {time_t time_t}
+                }
+            }
+	    }
+	}
+	WINDOWS {
+        #
+        # found libraries
+        # this array is used by the ::ffidl::find-lib
+        # abstraction to store the resolved lib paths
+        #
+        # CHANGE - put your resolved lib paths here
+        #
+        array set libs {
+            c msvcrt.dll
+            m msvcrt.dll
+            gdbm {}
+            gmp gmp202.dll
+            mathswig mathswig05.dll
+        }
+        #
+        # found types
+        # these arrays are used by the ::ffidl::find-type
+        # abstraction to store resolved system types
+        # and whether they have already been defined
+        # with ::ffidl::typedef
+        #
+        # CHANGE - put your resolved system types here
+        #
+        array set types {
+            size_t int
+            clock_t long
+            time_t long
+            timeval {time_t time_t}
+        }
+        array set typedefs {
+        }
+	}
+    }
+    
+    puts types=[array get types]
+    puts libs=[array get libs]
+    puts paths=$paths
+}
+
 #
 # get the address of the string rep of a Tcl_Obj
 # get the address of the unicode rep of a Tcl_Obj
@@ -286,6 +350,7 @@ puts vars=[::info vars ::*]
 # access the standard allocator, malloc, free, realloc
 #
 ::ffidl::find-type size_t
+puts libc=[::ffidl::find-lib c]
 ::ffidl::callout ::ffidl::malloc {size_t} pointer [::ffidl::symbol [::ffidl::find-lib c] malloc]
 ::ffidl::callout ::ffidl::realloc {pointer size_t} pointer [::ffidl::symbol [::ffidl::find-lib c] realloc]
 ::ffidl::callout ::ffidl::free {pointer} void [::ffidl::symbol [::ffidl::find-lib c] free]
