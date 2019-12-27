@@ -1,3 +1,5 @@
+package require binary
+
 #
 # atol for long return check
 #
@@ -7,24 +9,26 @@ source ../ffidlrt.tcl
 #
 # the plain interfaces
 #
-ffidl-proc atol {pointer-utf8} long [ffidl-symbol [ffidl-find-lib c] atol]
-ffidl-proc _strtol {pointer-utf8 pointer-var int} long [ffidl-symbol [ffidl-find-lib c] strtol]
-ffidl-proc _strtoul {pointer-utf8 pointer-var int} {unsigned long} [ffidl-symbol [ffidl-find-lib c] strtoul]
+set libc [::ffidl::find-lib c]
+ffidl::callout atol {pointer-utf8} long [ffidl::symbol $libc atol]
+ffidl::callout _strtol {pointer-utf8 pointer-var int} long [ffidl::symbol $libc strtol]
+ffidl::callout _strtoul {pointer-utf8 pointer-var int} {unsigned long} [ffidl::symbol $libc strtoul]
 #
 # some cooked interfaces
 #
+# these should be ported from [binary] to Jim's [pack] package, for reliability, speed, and simplicity.  revisit.
 proc strtol {str radix} {
-    set endptr [binary format [ffidl-info format pointer] 0]
+    set endptr [binary format [ffidl::info format pointer] 0]
     set l [_strtol $str endptr $radix]
-    binary scan $endptr [ffidl-info format pointer] endptr
+    binary scan $endptr [ffidl::info format pointer] endptr
     list $l $endptr
 }
 proc strtoul {str radix} {
-    set endptr [binary format [ffidl-info format pointer] 0]
+    set endptr [binary format [ffidl::info format pointer] 0]
     set l [_strtoul $str endptr $radix]
-    binary scan $endptr [ffidl-info format pointer] endptr
+    binary scan $endptr [ffidl::info format pointer] endptr
     list $l $endptr
 }
 
-puts 5=[strtol 5]
-puts 999999=[strtol 999999]
+puts 5=[strtol 5 10]
+puts 999999=[strtol 999999 10]

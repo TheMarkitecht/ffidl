@@ -350,10 +350,11 @@ namespace eval ::ffidl {
 # access the standard allocator, malloc, free, realloc
 #
 ::ffidl::find-type size_t
-puts libc=[::ffidl::find-lib c]
-::ffidl::callout ::ffidl::malloc {size_t} pointer [::ffidl::symbol [::ffidl::find-lib c] malloc]
-::ffidl::callout ::ffidl::realloc {pointer size_t} pointer [::ffidl::symbol [::ffidl::find-lib c] realloc]
-::ffidl::callout ::ffidl::free {pointer} void [::ffidl::symbol [::ffidl::find-lib c] free]
+set libc [::ffidl::find-lib c]
+puts libc=$libc
+::ffidl::callout ::ffidl::malloc {size_t} pointer [::ffidl::symbol $libc malloc]
+::ffidl::callout ::ffidl::realloc {pointer size_t} pointer [::ffidl::symbol $libc realloc]
+::ffidl::callout ::ffidl::free {pointer} void [::ffidl::symbol $libc free]
 
 #
 # Copy some memory at some location into a Tcl bytearray.
@@ -362,7 +363,7 @@ puts libc=[::ffidl::find-lib c]
 # program's health if things aren't sized correctly.
 #
 
-::ffidl::callout ::ffidl::memcpy {pointer-var pointer int} pointer [::ffidl::symbol [::ffidl::find-lib c] memcpy]
+::ffidl::callout ::ffidl::memcpy {pointer-var pointer int} pointer [::ffidl::symbol $libc memcpy]
 
 proc ::ffidl::peek {address nbytes} {
     set dst [binary format x$nbytes]
@@ -373,10 +374,10 @@ proc ::ffidl::peek {address nbytes} {
 #
 # convert raw pointers, as integers, into Tcl_Obj's
 #
-::ffidl::callout ::ffidl::pointer-into-string {pointer} pointer-utf8 [::ffidl::symbol [::ffidl::find-lib ffidl] ffidl_pointer_pun]
-::ffidl::callout ::ffidl::pointer-into-unicode {pointer} pointer-utf16 [::ffidl::symbol [::ffidl::find-lib ffidl] ffidl_pointer_pun]
-proc ::ffidl::pointer-into-bytearray {pointer length} {
-    set bytes [binary format x$length]
-    ::ffidl::memcpy [::ffidl::get-bytearray $bytes] $pointer $length
-    set bytes
-}
+#::ffidl::callout ::ffidl::pointer-into-string {pointer} pointer-utf8 [::ffidl::symbol [::ffidl::find-lib ffidl] ffidl_pointer_pun]
+#::ffidl::callout ::ffidl::pointer-into-unicode {pointer} pointer-utf16 [::ffidl::symbol [::ffidl::find-lib ffidl] ffidl_pointer_pun]
+#proc ::ffidl::pointer-into-bytearray {pointer length} {
+    #set bytes [binary format x$length]
+    #::ffidl::memcpy [::ffidl::get-bytearray $bytes] $pointer $length
+    #set bytes
+#}

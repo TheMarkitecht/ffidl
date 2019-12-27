@@ -28,24 +28,25 @@ long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=7
-FILE_NAME_0=33078;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2Fgeneric%2Fffidl.c;0;4
+current_page=0
+FILE_NAME_0=34546;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2Fgeneric%2Fffidl.c;0;4
 FILE_NAME_1=337;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2Fgeneric%2Fffidl_test.c;0;4
 FILE_NAME_2=72005;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Fjim.c;0;4
 FILE_NAME_3=23654;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Fjim.h;0;4
 FILE_NAME_4=357;Make;0;EUTF-8;1;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2FMakefile;0;4
 FILE_NAME_5=853;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2Fjim-load.c;0;4
 FILE_NAME_6=69;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2Fdemos%2Fatol.tcl;0;4
-FILE_NAME_7=531;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2Fffidlrt.tcl;0;4
+FILE_NAME_7=2773;Tcl;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2Fffidlrt.tcl;0;4
 FILE_NAME_8=305;None;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2F.gdbinit;0;4
 FILE_NAME_9=2215;None;0;EUTF-8;0;1;1;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fjimsh%2FREADME.namespaces;0;4
+FILE_NAME_10=1354;C;0;EUTF-8;0;1;0;%2Fsecure%2FSecureNotes%2FTcl_Evolution%2Fffidl%2Fdstring.h;0;4
 
 [VTE]
 last_dir=/home
 
 [build-menu]
 NF_00_LB=_Make
-NF_00_CM=make
+NF_00_CM=make  clean  all
 NF_00_WD=%p
 NF_01_LB=Make Custom _Target...
 NF_01_CM=make 

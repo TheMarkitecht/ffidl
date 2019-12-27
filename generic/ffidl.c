@@ -3932,7 +3932,7 @@ int Jim_FfidlJimInit(Jim_Interp *interp)
   Jim_CreateCommand(interp,"ffidl::typedef", tcl_ffidl_typedef, (ClientData) client, NULL);
   Jim_CreateCommand(interp,"ffidl::library", tcl_ffidl_library, (ClientData) client, NULL);
   Jim_CreateCommand(interp,"ffidl::symbol", tcl_ffidl_symbol, (ClientData) client, NULL);
-  Jim_CreateCommand(interp,"ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL);
+/*  Jim_CreateCommand(interp,"ffidl::stubsymbol", tcl_ffidl_stubsymbol, (ClientData) client, NULL); */
   Jim_CreateCommand(interp,"ffidl::callout", tcl_ffidl_callout, (ClientData) client, NULL);
 #if USE_CALLBACKS
   Jim_CreateCommand(interp,"ffidl::callback", tcl_ffidl_callback, (ClientData) client, NULL);
