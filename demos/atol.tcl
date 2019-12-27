@@ -10,8 +10,11 @@ source ../ffidlrt.tcl
 # the plain interfaces
 #
 set libc [::ffidl::find-lib c]
+# long atol(const char *str);
 ffidl::callout atol {pointer-utf8} long [ffidl::symbol $libc atol]
+# long int strtol(const char *nptr, char **endptr, int base);
 ffidl::callout _strtol {pointer-utf8 pointer-var int} long [ffidl::symbol $libc strtol]
+# unsigned long int strtoul(const char *nptr, char **endptr, int base);
 ffidl::callout _strtoul {pointer-utf8 pointer-var int} {unsigned long} [ffidl::symbol $libc strtoul]
 #
 # some cooked interfaces
@@ -31,5 +34,6 @@ proc strtoul {str radix} {
 }
 
 puts "commands=[join [lsort [info commands]] {  ~~  }]"
-puts 5=[strtol {5 } 10]
-puts 999999=[strtol {999999 } 10]
+puts 79=[atol {79 junk}]
+puts 5=[strtol {5 junk} 10]
+puts 999999=[strtol {999999 junk} 10]
