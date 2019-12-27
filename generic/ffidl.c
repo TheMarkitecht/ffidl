@@ -3069,6 +3069,28 @@ static int tcl_ffidl_typedef(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[]
   return JIM_OK;
 }
 
+/* this function is based on the way Ffidl used to integrate with Tcl; it might be useless with Jim's namespaces? */
+void resolve_command_to_absolute(Jim_Interp *interp, const char **name)
+{
+#if 0
+  if (!strstr(*name, "::")) {
+    /* 'name' is relative.  resolve it to an absolute namespace instead. */
+    Jim_DString ds;
+    Jim_DStringInit(&ds);
+    Jim_Obj *ns;
+    ns = interp->framePtr->nsObj;
+    if (ns != interp->topFramePtr->nsObj) {
+      /* interp's current namespace is not its global one.  prepend that namespace. */
+      Jim_DStringAppend(&ds, Jim_GetString(ns, NULL), -1);
+    }
+    Jim_DStringAppend(&ds, "::", 2);
+    Jim_DStringAppend(&ds, *name, -1);
+    *name = strndup(Jim_DStringValue(&ds), Jim_DStringLength(&ds));
+    Jim_DStringFree(&ds);
+  }
+#endif
+}
+
 /* usage: depends on the signature defining the ffidl-callout */
 static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
@@ -3187,7 +3209,7 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 #endif
     case FFIDL_STRUCT:
       if (obj->typePtr != ffidl_bytearray_ObjType) {
-	sprintf(buff, "parameter %d must be a binary string", i);
+	sprintf(buff, "parameter %d must be a struct stored in a binary string.", i);
 	AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
@@ -3220,7 +3242,7 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
       continue;  */
     case FFIDL_PTR_BYTE:
       if (obj->typePtr != ffidl_bytearray_ObjType) {
-	sprintf(buff, "parameter %d must be a binary string", i);
+	sprintf(buff, "parameter %d must be a byte array stored in a binary string.", i);
 	AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
@@ -3230,7 +3252,7 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
       obj = Jim_GetVariable(interp, objv[args_ix + i], JIM_ERRMSG);
       if (obj == NULL) return JIM_ERR;
       if (obj->typePtr != ffidl_bytearray_ObjType) {
-	sprintf(buff, "parameter %d must be a binary string", i);
+	sprintf(buff, "parameter %d must be a byte array stored in a binary string.", i);
 	AppendResult(interp, buff, NULL);
 	goto cleanup;
       }
@@ -3248,23 +3270,9 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
     case FFIDL_PTR_PROC: {
       ffidl_callback *callback;
       ffidl_closure *closure;
-      Jim_DString ds;
       const char *name = Jim_GetString(objv[args_ix+i], NULL);
-      Jim_DStringInit(&ds);
-      if (!strstr(name, "::")) {
-        /* 'name' is relative.  resolve it to an absolute namespace instead. */
-        Jim_Obj *ns;
-        ns = interp->framePtr->nsObj;
-        if (ns != interp->topFramePtr->nsObj) {
-          /* interp's current namespace is not its global one.  prepend that namespace. */
-          Jim_DStringAppend(&ds, Jim_GetString(ns, NULL), -1);
-        }
-        Jim_DStringAppend(&ds, "::", 2);
-        Jim_DStringAppend(&ds, name, -1);
-        name = Jim_DStringValue(&ds);
-      }
+      resolve_command_to_absolute(interp, &name);
       callback = callback_lookup(callout->client, name);
-      Jim_DStringFree(&ds);
       if (callback == NULL) {
 	AppendResult(interp, "no callback named \"", Jim_GetString(objv[args_ix+i], NULL), "\" is defined", NULL);
 	goto cleanup;
@@ -3350,7 +3358,7 @@ static int tcl_ffidl_callout(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[]
   void (*fn)();
   int argc, i, len;
   Jim_Obj **argv;
-  Jim_DString usage, ds;
+  Jim_DString usage;
   int res;
   ffidl_cif *cif = NULL;
   ffidl_callout *callout;
@@ -3362,22 +3370,10 @@ static int tcl_ffidl_callout(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[]
     Jim_WrongNumArgs(interp, 1, objv, "name {?argument_type ...?} return_type address ?protocol?");
     return JIM_ERR;
   }
-  Jim_DStringInit(&ds);
   Jim_DStringInit(&usage);
   /* fetch name */
   name = Jim_GetString(objv[name_ix], NULL);
-  if (!strstr(name, "::")) {
-    /* 'name' is relative.  resolve it to an absolute namespace instead. */
-    Jim_Obj *ns;
-    ns = interp->framePtr->nsObj;
-    if (ns != interp->topFramePtr->nsObj) {
-      /* interp's current namespace is not its global one.  prepend that namespace. */
-      Jim_DStringAppend(&ds, Jim_GetString(ns, NULL), -1);
-    }
-    Jim_DStringAppend(&ds, "::", 2);
-    Jim_DStringAppend(&ds, name, -1);
-    name = Jim_DStringValue(&ds);
-  }
+  resolve_command_to_absolute(interp, &name);
   /* fetch cif */
   if (cif_parse(interp, client,
 		objv[args_ix],
@@ -3445,10 +3441,8 @@ static int tcl_ffidl_callout(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[]
   callout_define(client, name, callout);
   /* create the tcl command */
   res = Jim_CreateCommand(interp, name, tcl_ffidl_call, (ClientData) callout, callout_delete);
-  Jim_DStringFree(&ds);
   return res;
 error:
-  Jim_DStringFree(&ds);
   Jim_DStringFree(&usage);
   if (cif) {
     cif_dec_ref(cif);
@@ -3476,7 +3470,6 @@ static int tcl_ffidl_callback(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[
   ffidl_cif *cif = NULL;
   Jim_Obj **cmdv = NULL;
   int cmdc;
-  Jim_DString ds;
   ffidl_callback *callback = NULL;
   ffidl_client *client = (ffidl_client *)Jim_CmdPrivData(interp);
   ffidl_closure *closure = NULL;
@@ -3491,20 +3484,8 @@ static int tcl_ffidl_callback(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[
     return JIM_ERR;
   }
   /* fetch name */
-  Jim_DStringInit(&ds);
   name = Jim_GetString(objv[name_ix], NULL);
-  if (!strstr(name, "::")) {
-    /* 'name' is relative.  resolve it to an absolute namespace instead. */
-    Jim_Obj *ns;
-    ns = interp->framePtr->nsObj;
-    if (ns != interp->topFramePtr->nsObj) {
-      /* interp's current namespace is not its global one.  prepend that namespace. */
-      Jim_DStringAppend(&ds, Jim_GetString(ns, NULL), -1);
-    }
-    Jim_DStringAppend(&ds, "::", 2);
-    Jim_DStringAppend(&ds, name, -1);
-    name = Jim_DStringValue(&ds);
-  }
+  resolve_command_to_absolute(interp, &name);
   /* fetch cif */
   if (cif_parse(interp, client,
 		objv[args_ix],
@@ -3599,7 +3580,6 @@ static int tcl_ffidl_callback(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[
 #endif
   /* define the callback */
   callback_define(client, name, callback);
-  Jim_DStringFree(&ds);
 
   /* Return function pointer to the callback. */
 #if USE_LIBFFI
@@ -3612,7 +3592,6 @@ static int tcl_ffidl_callback(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[
   return JIM_OK;
 
 error:
-  Jim_DStringFree(&ds);
   if (cif) {
     cif_dec_ref(cif);
   }
@@ -3814,6 +3793,7 @@ static int tcl_ffidl_symbol(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 }
 
 /* usage: ffidl-stubsymbol library stubstable symbolnumber -> address */
+/*
 static int tcl_ffidl_stubsymbol(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
 {
   enum {
@@ -3872,7 +3852,6 @@ static int tcl_ffidl_stubsymbol(Jim_Interp *interp, int objc, Jim_Obj *CONST obj
     }
   }
 #endif
-  /* not yet supported in the Jim port. 
   switch (stubstable) {
     case STUBS:
       stubs = (void**)(library == LIB_TCL ? tclStubsPtr : tkStubsPtr); break;
@@ -3884,7 +3863,7 @@ static int tcl_ffidl_stubsymbol(Jim_Interp *interp, int objc, Jim_Obj *CONST obj
       stubs = (void**)(library == LIB_TCL ? tclIntPlatStubsPtr : tkIntPlatStubsPtr); break;
     case INTXLIBSTUBS:
       stubs = (void**)(library == LIB_TCL ? NULL : tkIntXlibStubsPtr); break;
-  } */
+  } 
   stubs = NULL;
 
   if (!stubs) {
@@ -3902,6 +3881,7 @@ static int tcl_ffidl_stubsymbol(Jim_Interp *interp, int objc, Jim_Obj *CONST obj
   Jim_SetResult(interp, Ffidl_NewPointerObj(interp, address));
   return JIM_OK;
 }
+*/
 
 /*
  * One function exported for pointer punning with ffidl-callout.

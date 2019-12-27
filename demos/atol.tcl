@@ -30,5 +30,6 @@ proc strtoul {str radix} {
     list $l $endptr
 }
 
-puts 5=[strtol 5 10]
-puts 999999=[strtol 999999 10]
+puts "commands=[join [lsort [info commands]] {  ~~  }]"
+puts 5=[strtol {5 } 10]
+puts 999999=[strtol {999999 } 10]

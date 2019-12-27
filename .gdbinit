@@ -13,8 +13,10 @@ set solib-search-path .:..
 
 b jim-load.c:33
 r
-b jim.c:624
+#b jim.c:624
+b tcl_ffidl_callout
 c
+
 
 db
 db
