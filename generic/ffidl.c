@@ -1933,6 +1933,7 @@ static void callout_call(ffidl_callout *callout)
   else
     ffi_call(&cif->lib_cif, callout->fn, callout->ret, callout->args);
 #else
+  /* this is the case for libffi on Linux amd64. */
   ffi_call(&cif->lib_cif, callout->fn, callout->ret, callout->args);
 #endif
 #elif USE_LIBFFCALL
@@ -3239,21 +3240,23 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
     case FFIDL_PTR_VAR:
       obj = Jim_GetVariable(interp, objv[args_ix + i], JIM_ERRMSG);
       if (obj == NULL) return JIM_ERR;
-      jim_wide ptrPassIn;
-      if (Jim_GetWide(interp, obj, &ptrPassIn) != JIM_OK) {
-        sprintf(buff, "\nparameter %d must be the name of a variable containing a pointer.", i); 
+      /* cast the first few bytes of the variable's content as a pointer. */
+      *(void **)callout->args[i] = (*(void**)Jim_GetString(obj, &itmp));
+      if (itmp != sizeof(void*)) {
+        sprintf(buff, "\nparameter %d must be the name of a variable containing a pointer (in binary). it must be %zu bytes long.", i, sizeof(void*)); 
         AppendResult(interp, buff, NULL);
         goto cleanup;
       }
+      /* this object's string rep is maybe about to get written by the foreign function. 
+      make sure it's not shared, and invalidate some reps as needed.  */
       if (Jim_IsShared(obj)) {
         itmp = Jim_SetVariable(interp, objv[args_ix+i], Jim_DuplicateObj(interp, obj));
           if (itmp != JIM_OK) {
           goto cleanup;
         }
       }
-      *(void **)callout->args[i] = (void *)obj->bytes;
       /* printf("pointer-var -> %d\n", cif->avalues[i].v_pointer); */
-      Jim_InvalidateStringRep(obj);
+      Jim_FreeIntRep(interp, obj);
       continue;
 #if USE_CALLBACKS
     case FFIDL_PTR_PROC: {
