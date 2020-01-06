@@ -33,7 +33,8 @@ proc strtoul {str radix} {
     list $l $endptr
 }
 
-puts "commands=[join [lsort [info commands]] {  ~~  }]"
+#puts "commands=[join [lsort [info commands]] {  ~~  }]"
 puts 79=[atol {79 junk}]
+puts format=[ffidl::info format pointer]
 puts 5=[strtol {5 junk} 10]
 puts 999999=[strtol {999999 junk} 10]
