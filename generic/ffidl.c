@@ -936,7 +936,6 @@ struct ffidl_lib {
  * In addition to the version string above
  */
 
-static const Jim_ObjType *ffidl_bytearray_ObjType;
 static const Jim_ObjType *ffidl_int_ObjType;
 #if HAVE_WIDE_INT
 static const Jim_ObjType *ffidl_wideInt_ObjType;
@@ -3208,17 +3207,11 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
       continue;
 #endif
     case FFIDL_STRUCT:
-      if (obj->typePtr != ffidl_bytearray_ObjType) {
-	sprintf(buff, "parameter %d must be a struct stored in a binary string.", i);
-	AppendResult(interp, buff, NULL);
-	goto cleanup;
-      }
-      callout->args[i] = obj->bytes;
-      itmp = obj->length;
+      callout->args[i] = (void *)Jim_GetString(obj, &itmp);
       if (itmp != cif->atypes[i]->size) {
-	sprintf(buff, "parameter %d is the wrong size, %u bytes instead of %lu.", i, itmp, (long)(cif->atypes[i]->size));
-	AppendResult(interp, buff, NULL);
-	goto cleanup;
+        sprintf(buff, "parameter %d is the wrong size, %u bytes instead of %lu.", i, itmp, (long)(cif->atypes[i]->size));
+        AppendResult(interp, buff, NULL);
+        goto cleanup;
       }
       continue;
     case FFIDL_PTR:
@@ -3241,26 +3234,22 @@ static int tcl_ffidl_call(Jim_Interp *interp, int objc, Jim_Obj *CONST objv[])
       *(void **)callout->args[i] = (void *)Jim_GetUnicode(obj);
       continue;  */
     case FFIDL_PTR_BYTE:
-      if (obj->typePtr != ffidl_bytearray_ObjType) {
-	sprintf(buff, "parameter %d must be a byte array stored in a binary string.", i);
-	AppendResult(interp, buff, NULL);
-	goto cleanup;
-      }
-      *(void **)callout->args[i] = (void *)obj->bytes;
+      *(void **)callout->args[i] = (void *)Jim_GetString(obj, NULL);
       continue;
     case FFIDL_PTR_VAR:
       obj = Jim_GetVariable(interp, objv[args_ix + i], JIM_ERRMSG);
       if (obj == NULL) return JIM_ERR;
-      if (obj->typePtr != ffidl_bytearray_ObjType) {
-	sprintf(buff, "parameter %d must be a byte array stored in a binary string.", i);
-	AppendResult(interp, buff, NULL);
-	goto cleanup;
+      jim_wide ptrPassIn;
+      if (Jim_GetWide(interp, obj, &ptrPassIn) != JIM_OK) {
+        sprintf(buff, "parameter %d must be the name of a variable containing a pointer.", i); 
+        AppendResult(interp, buff, NULL);
+        goto cleanup;
       }
       if (Jim_IsShared(obj)) {
-	itmp = Jim_SetVariable(interp, objv[args_ix+i], Jim_DuplicateObj(interp, obj));
-	if (itmp != JIM_OK) {
-	  goto cleanup;
-	}
+        itmp = Jim_SetVariable(interp, objv[args_ix+i], Jim_DuplicateObj(interp, obj));
+          if (itmp != JIM_OK) {
+          goto cleanup;
+        }
       }
       *(void **)callout->args[i] = (void *)obj->bytes;
       /* printf("pointer-var -> %d\n", cif->avalues[i].v_pointer); */
@@ -3920,9 +3909,6 @@ int Jim_FfidlJimInit(Jim_Interp *interp)
 
   /* determine Jim_ObjType * for some types */
   Jim_Obj * temp;
-  temp = Jim_NewStringObj(interp, "", 0);
-  ffidl_bytearray_ObjType = temp->typePtr;
-  Jim_FreeObj(interp, temp);
   temp = Jim_NewIntObj(interp, 0);
   ffidl_int_ObjType = temp->typePtr;
   Jim_FreeObj(interp, temp);
